@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Installing Screenly OSE (beta)"
+echo "Installing Screenly OSE/FSG edition"
 
 ## Simple disk storage check. Naively assumes root partition holds all system data.
 ROOT_AVAIL=$(df -k / | tail -n 1 | awk {'print $4'})
@@ -12,21 +12,22 @@ if [ $ROOT_AVAIL -lt $MIN_REQ ]; then
 fi
 
 echo "Updating system package database..."
-sudo apt-get -qq update > /dev/null
+sudo apt-get  update 
 
 echo "Upgrading the system..."
 echo "(This might take a while.)"
-sudo apt-get -y -qq upgrade > /dev/null
+sudo apt-get -y upgrade 
 
 echo "Installing dependencies..."
-sudo apt-get -y -qq install git-core python-pip python-netifaces python-simplejson python-imaging uzbl unclutter sqlite3 supervisor omxplayer x11-xserver-utils watchdog chkconfig > /dev/null
+sudo apt-get -y install git-core python-pip python-netifaces python-simplejson python-imaging uzbl unclutter sqlite3 supervisor omxplayer x11-xserver-utils watchdog chkconfig 
 
 echo "Downloading Screenly-OSE..."
-git clone git://github.com/wireload/screenly-ose.git ~/screenly > /dev/null
+git clone git://github.com/SebastianSchildt/screenly-ose.git ~/screenly  
 
 echo "Installing more dependencies..."
-sudo pip install -r ~/screenly/requirements.txt -q > /dev/null
+sudo pip install -r ~/screenly/requirements.txt 
 
+#Todo, only add once
 echo "Adding Screenly to X auto start..."
 mkdir -p ~/.config/lxsession/LXDE/
 echo "@~/screenly/misc/xloader.sh" > ~/.config/lxsession/LXDE/autostart
@@ -51,8 +52,8 @@ sudo /etc/init.d/watchdog start
 
 echo "Adding Screenly to autostart (via Supervisord)"
 sudo ln -s ~/screenly/misc/supervisor_screenly.conf /etc/supervisor/conf.d/screenly.conf
-sudo /etc/init.d/supervisor stop > /dev/null
-sudo /etc/init.d/supervisor start > /dev/null
+sudo /etc/init.d/supervisor stop 
+sudo /etc/init.d/supervisor start 
 
 echo "Making modifications to X..."
 [ -f ~/.gtkrc-2.0 ] && rm -f ~/.gtkrc-2.0
@@ -63,8 +64,5 @@ ln -s ~/screenly/misc/lxde-rc.xml ~/.config/openbox/lxde-rc.xml
 [ -f ~/.config/lxpanel/LXDE/panels/panel ] && mv ~/.config/lxpanel/LXDE/panels/panel ~/.config/lxpanel/LXDE/panels/panel.bak
 [ -f /etc/xdg/lxsession/LXDE/autostart ] && sudo mv /etc/xdg/lxsession/LXDE/autostart /etc/xdg/lxsession/LXDE/autostart.bak
 
-echo "Quiet the boot process..."
-sudo cp /boot/cmdline.txt /boot/cmdline.txt.bak
-sudo sed 's/$/ quiet/' -i /boot/cmdline.txt
 
-echo "Assuming no errors were encountered, go ahead and restart your computer."
+echo "Done."
