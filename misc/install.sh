@@ -20,7 +20,7 @@ sudo apt-get -y upgrade
 
 echo "Installing dependencies..."
 sudo apt-get -y install git-core python-pip python-netifaces python-simplejson python-imaging uzbl unclutter sqlite3 supervisor omxplayer x11-xserver-utils watchdog chkconfig 
-sudo apt-get -y install python-dev htop vim
+sudo apt-get -y install python-pycryptopp  python-dev htop vim
 
 echo "Downloading Screenly-OSE..."
 git clone git://github.com/SebastianSchildt/screenly-ose.git ~/screenly  
