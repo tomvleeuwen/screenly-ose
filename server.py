@@ -4,7 +4,7 @@
 __author__ = "Viktor Petersson"
 __copyright__ = "Copyright 2012, WireLoad Inc"
 __license__ = "Dual License: GPLv2 and Commercial License"
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 __email__ = "vpetersson@wireload.net"
 
 from datetime import datetime, timedelta
@@ -22,9 +22,6 @@ import os
 import traceback
 import uuid
 
-#from StringIO import StringIO
-#from PIL import Image
-
 from bottle import route, run, request, error, static_file, response
 from bottle import HTTPResponse
 from bottlehaml import haml_template
@@ -33,10 +30,12 @@ from cork import Cork
 from bottle import default_app, view
 from beaker.middleware import SessionMiddleware
 
-from db import connection
+import db
+import assets_helper
 
 from utils import json_dump
 from utils import get_node_ip
+from utils import validate_url
 
 from settings import settings, DEFAULTS
 get_current_time = datetime.utcnow
@@ -49,26 +48,6 @@ for u in  aaa.list_users():
 ################################
 # Utilities
 ################################
-
-def validate_uri(uri):
-    """Simple URL verification.
-
-    >>> validate_uri("hello")
-    False
-    >>> validate_uri("ftp://example.com")
-    False
-    >>> validate_uri("http://")
-    False
-    >>> validate_uri("http://wireload.net/logo.png")
-    True
-    >>> validate_uri("https://wireload.net/logo.png")
-    True
-
-    """
-
-    uri_check = urlparse(uri)
-
-    return bool(uri_check.scheme in ('http', 'https') and uri_check.netloc)
 
 
 def make_json_response(obj):
@@ -121,6 +100,7 @@ def template(template_name, **context):
 
     # Add global contexts
     context['up_to_date'] = is_up_to_date()
+    context['default_duration'] = settings['default_duration']
 
     return haml_template(template_name, **context)
 
@@ -128,112 +108,6 @@ def template(template_name, **context):
 ################################
 # Model
 ################################
-
-FIELDS = [
-    "asset_id", "name", "uri", "start_date",
-    "end_date", "duration", "mimetype"
-]
-
-
-def initiate_db():
-    # Create config dir if it doesn't exist
-    if not path.isdir(settings.get_configdir()):
-        makedirs(settings.get_configdir())
-
-    c = connection.cursor()
-
-    # Check if the asset-table exist. If it doesn't, create it.
-    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='assets'")
-    asset_table = c.fetchone()
-
-    if not asset_table:
-        c.execute("CREATE TABLE assets (asset_id TEXT, name TEXT, uri TEXT, md5 TEXT, start_date TIMESTAMP, end_date TIMESTAMP, duration TEXT, mimetype TEXT)")
-        return "Initiated database."
-
-
-def is_active(asset, at_time=None):
-    """Accepts an asset dictionary and determines if it
-    is active at the given time. If no time is specified, 'now' is used.
-
-    >>> asset = {'asset_id': u'4c8dbce552edb5812d3a866cfe5f159d', 'mimetype': u'web', 'name': u'WireLoad', 'end_date': datetime(2013, 1, 19, 23, 59), 'uri': u'http://www.wireload.net', 'duration': u'5', 'start_date': datetime(2013, 1, 16, 0, 0)};
-
-    >>> is_active(asset, datetime(2013, 1, 16, 12, 00))
-    True
-    >>> is_active(asset, datetime(2014, 1, 1))
-    False
-
-    """
-
-    if not (asset['start_date'] and asset['end_date']):
-        return False
-
-    at_time = at_time or get_current_time()
-
-    return (asset['start_date'] < at_time and asset['end_date'] > at_time)
-
-
-def fetch_assets(keys=FIELDS, order_by="name"):
-    """Fetches all assets from the database and returns their
-    data as a list of dictionaries corresponding to each asset."""
-    c = connection.cursor()
-    c.execute("SELECT %s FROM assets ORDER BY %s" % (", ".join(keys), order_by))
-    assets = []
-
-    for asset in c.fetchall():
-        dictionary = {}
-        for i in range(len(keys)):
-            dictionary[keys[i]] = asset[i]
-        assets.append(dictionary)
-
-    return assets
-
-
-def get_playlist():
-    "Returns all currently active assets."
-    return [asset for asset in fetch_assets() if is_active(asset)]
-
-
-def fetch_asset(asset_id, keys=FIELDS):
-    c = connection.cursor()
-    c.execute("SELECT %s FROM assets WHERE asset_id=?" % ", ".join(keys), (asset_id,))
-    assets = []
-    for asset in c.fetchall():
-        dictionary = {}
-        for i in range(len(keys)):
-            dictionary[keys[i]] = asset[i]
-        assets.append(dictionary)
-    if len(assets):
-        asset = assets[0]
-        asset.update({'is_active': is_active(asset)})
-        return asset
-
-
-def insert_asset(asset):
-    c = connection.cursor()
-    c.execute(
-        "INSERT INTO assets (%s) VALUES (%s)" % (", ".join(asset.keys()), ",".join(["?"] * len(asset.keys()))),
-        asset.values()
-    )
-    connection.commit()
-    asset.update({'is_active': is_active(asset)})
-    return asset
-
-
-def update_asset(asset_id, asset):
-    del asset['asset_id']
-    c = connection.cursor()
-    query = "UPDATE assets SET %s=? WHERE asset_id=?" % "=?, ".join(asset.keys())
-    c.execute(query, asset.values() + [asset_id])
-    connection.commit()
-    asset.update({'asset_id': asset_id})
-    asset.update({'is_active': is_active(asset)})
-    return asset
-
-
-def delete_asset(asset_id):
-    c = connection.cursor()
-    c.execute("DELETE FROM assets WHERE asset_id=?", (asset_id,))
-    connection.commit()
 
 
 ################################
@@ -251,15 +125,16 @@ def prepare_asset(request):
         val = data.get(key, '')
         return val.strip() if isinstance(val, basestring) else val
 
-    if all([
-        get('name'),
-        get('uri') or (request.files.file_upload != ""),
-        get('mimetype')]):
+    if all([get('name'),
+            get('uri') or (request.files.file_upload != ""),
+            get('mimetype')]):
 
         asset = {
             'name': get('name').decode('UTF-8'),
             'mimetype': get('mimetype'),
             'asset_id': get('asset_id'),
+            'is_enabled': get('is_enabled'),
+            'nocache': get('nocache'),
         }
 
         uri = get('uri') or False
@@ -281,7 +156,7 @@ def prepare_asset(request):
             raise Exception("Invalid combination. Can't select both URI and a file.")
 
         if uri and not uri.startswith('/'):
-            if not validate_uri(uri):
+            if not validate_url(uri):
                 raise Exception("Invalid URL. Failed to add asset.")
 
             if "image" in asset['mimetype']:
@@ -307,7 +182,6 @@ def prepare_asset(request):
                     if not chunk:
                         break
                     f.write(chunk)
-
 
         if "video" in asset['mimetype']:
             asset['duration'] = "N/A"
@@ -338,9 +212,7 @@ def prepare_asset(request):
 
 @route('/api/assets', method="GET")
 def api_assets():
-    assets = fetch_assets()
-    for asset in assets:
-        asset['is_active'] = is_active(asset)
+    assets = assets_helper.read(db_conn)
     return make_json_response(assets)
 
 
@@ -361,31 +233,31 @@ def api(view):
 @route('/api/assets', method="POST")
 @api
 def add_asset():
-    return insert_asset(prepare_asset(request))
+    return assets_helper.create(db_conn, prepare_asset(request))
 
 
 @route('/api/assets/:asset_id', method="GET")
 @api
 def edit_asset(asset_id):
-    return fetch_asset(asset_id)
+    return assets_helper.read(db_conn, asset_id)
 
 
 @route('/api/assets/:asset_id', method=["PUT", "POST"])
 @api
 def edit_asset(asset_id):
-    return update_asset(asset_id, prepare_asset(request))
+    return assets_helper.update(db_conn, asset_id, prepare_asset(request))
 
 
 @route('/api/assets/:asset_id', method="DELETE")
 @api
 def remove_asset(asset_id):
-    asset = fetch_asset(asset_id)
+    asset = assets_helper.read(db_conn, asset_id)
     try:
         if asset['uri'].startswith(settings.get_asset_folder()):
             os.remove(asset['uri'])
     except OSError:
         pass
-    delete_asset(asset_id)
+    assets_helper.delete(db_conn, asset_id)
     response.status = 204  # return an OK with no content
 
 
@@ -423,8 +295,7 @@ def login_form():
 @route('/')
 def viewIndex():
     aaa.require(role='admin', fail_redirect='/sorry_page')
-    ctx = {'default_duration': settings['default_duration']}
-    return template('index',**ctx)
+    return template('index')
 
 
 @route('/settings', method=["GET", "POST"])
@@ -516,9 +387,16 @@ if __name__ == "__main__":
     # Make sure the asset folder exist. If not, create it
     if not path.isdir(settings.get_asset_folder()):
         mkdir(settings.get_asset_folder())
+    # Create config dir if it doesn't exist
+    if not path.isdir(settings.get_configdir()):
+        makedirs(settings.get_configdir())
 
-    initiate_db()
-    
+    with db.conn(settings.get_database()) as conn:
+        global db_conn
+        db_conn = conn
+        with db.cursor(db_conn) as c:
+            db.create_assets_table(c)
+
     session_opts = {
         'session.type': 'cookie',
         'session.validate_key': True,
@@ -535,7 +413,6 @@ if __name__ == "__main__":
     }
     app = SessionMiddleware(app, session_opts)
 
-
-    run(app=app,host=settings.get_listen_ip(),
-        port=settings.get_listen_port(),
-        reloader=True)
+        run(app=app,host=settings.get_listen_ip(),
+            port=settings.get_listen_port(),
+            reloader=True)

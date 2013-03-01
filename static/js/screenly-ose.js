@@ -5,7 +5,7 @@
 
 
 (function() {
-  var API, App, Asset, AssetRowView, Assets, AssetsView, EditAssetView, date_to, delay, get_filename, get_mimetype, get_template, insertWbr, mimetypes, now, url_test, y2ts, years_from_now,
+  var API, App, Asset, AssetRowView, Assets, AssetsView, EditAssetView, a_week, date_to, delay, from_now, get_filename, get_mimetype, get_template, insertWbr, mimetypes, now, url_test, y2ts, years_from_now,
     _this = this,
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; },
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
@@ -44,6 +44,16 @@
   years_from_now = function(years) {
     return new Date((y2ts(years)) + date_to.timestamp(now()));
   };
+
+  from_now = (function() {
+    var n;
+    n = now().getTime();
+    return function(t) {
+      return new Date(t + n);
+    };
+  })();
+
+  a_week = 7 * 84600 * 1000;
 
   get_template = function(name) {
     return _.template(($("#" + name + "-template")).html());
@@ -101,8 +111,10 @@
         mimetype: 'webpage',
         uri: '',
         start_date: now(),
-        end_date: now(),
-        duration: default_duration
+        end_date: from_now(a_week),
+        duration: default_duration,
+        is_enabled: 0,
+        nocache: 0
       };
     };
 
@@ -308,14 +320,16 @@
       }
       (this.$('input, select')).prop('disabled', true);
       save.done(function(data) {
-        var default_duration;
+        var default_duration, isNew;
+        isNew = _this.model.isNew();
         default_duration = _this.model.get('duration');
+        _this.model.id = data.asset_id;
         if (!_this.model.collection) {
           _this.collection.add(_this.model);
         }
         (_this.$el.children(":first")).modal('hide');
         _.extend(_this.model.attributes, data);
-        if (!_this.edit) {
+        if (isNew) {
           return _this.model.collection.add(_this.model);
         }
       });
@@ -348,12 +362,12 @@
           }
         },
         uri: function(v) {
-          if (!_this.edit && _this.model.isNew() && ((that.$('#tab-uri')).hasClass('active')) && !url_test(v)) {
+          if (_this.model.isNew() && ((that.$('#tab-uri')).hasClass('active')) && !url_test(v)) {
             return 'please enter a valid URL';
           }
         },
         file_upload: function(v) {
-          if (!v && !(that.$('#tab-uri')).hasClass('active')) {
+          if (_this.model.isNew() && !v && !(that.$('#tab-uri')).hasClass('active')) {
             return 'please select a file';
           }
         }
@@ -458,7 +472,7 @@
 
       this.setEnabled = __bind(this.setEnabled, this);
 
-      this.toggleActive = __bind(this.toggleActive, this);
+      this.toggleIsEnabled = __bind(this.toggleIsEnabled, this);
 
       this.render = __bind(this.render, this);
 
@@ -482,7 +496,7 @@
       (this.$(".delete-asset-button")).popover({
         content: get_template('confirm-delete')
       });
-      (this.$(".toggle input")).prop("checked", this.model.get('is_active'));
+      (this.$(".toggle input")).prop("checked", this.model.get('is_enabled'));
       (this.$(".asset-icon")).addClass((function() {
         switch (this.model.get("mimetype")) {
           case "video":
@@ -499,40 +513,28 @@
     };
 
     AssetRowView.prototype.events = {
-      'change .activation-toggle input': 'toggleActive',
+      'change .is_enabled-toggle input': 'toggleIsEnabled',
       'click .edit-asset-button': 'edit',
       'click .delete-asset-button': 'showPopover'
     };
 
-    AssetRowView.prototype.toggleActive = function(e) {
-      var save,
+    AssetRowView.prototype.toggleIsEnabled = function(e) {
+      var save, val,
         _this = this;
-      if (this.model.get('is_active')) {
-        this.model.set({
-          is_active: false,
-          end_date: date_to.iso(now())
-        });
-      } else {
-        this.model.set({
-          is_active: true,
-          start_date: date_to.iso(now()),
-          end_date: date_to.iso(years_from_now(10))
-        });
-      }
+      val = (1 + this.model.get('is_enabled')) % 2;
+      this.model.set({
+        is_enabled: val
+      });
       this.setEnabled(false);
       save = this.model.save();
-      delay(300, function() {
-        save.done(function() {
-          _this.remove();
-          return _this.model.collection.trigger('add', _([_this.model]));
+      save.done(function() {
+        return _this.setEnabled(true);
+      });
+      save.fail(function() {
+        _this.model.set(_this.model.previousAttributes(), {
+          silent: true
         });
-        return save.fail(function() {
-          _this.model.set(_this.model.previousAttributes(), {
-            silent: true
-          });
-          _this.setEnabled(true);
-          return _this.render();
-        });
+        return _this.render();
       });
       return true;
     };
@@ -603,7 +605,7 @@
 
     AssetsView.prototype.initialize = function(options) {
       var event, _i, _len, _ref, _results;
-      _ref = ['reset', 'add', 'sync'];
+      _ref = 'reset add remove sync'.split(' ');
       _results = [];
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         event = _ref[_i];

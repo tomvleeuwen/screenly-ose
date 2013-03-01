@@ -11,6 +11,10 @@ API.date_to = date_to =
 now = -> new Date()
 y2ts = (years) -> (years * 365 * 24 * 60 * 60000)
 years_from_now = (years) -> new Date ((y2ts years) + date_to.timestamp now())
+from_now = (->
+  n = now().getTime()
+  (t) -> new Date (t+n))()
+a_week = 7*84600*1000
 
 get_template = (name) -> _.template ($ "##{name}-template").html()
 delay = (wait, fn) -> _.delay fn, wait
@@ -26,12 +30,10 @@ url_test = (v) -> /(http|ftp|https):\/\/[\w-]+(\.[\w-]+)+([\w.,@?^=%&amp;:\/~+#-
 get_filename = (v) -> (v.replace /[\/\\\s]+$/g, '').replace /^.*[\\\/]/g, ''
 insertWbr = (v) -> (v.replace /\//g, '/<wbr>').replace /\&/g, '&amp;<wbr>'
 
-# Models
-
-
 # Tell Backbone to send its saves as JSON-encoded.
 Backbone.emulateJSON = on
 
+# Models
 API.Asset = class Asset extends Backbone.Model
   idAttribute: "asset_id"
   fields: 'name mimetype uri start_date end_date duration'.split ' '
@@ -40,8 +42,10 @@ API.Asset = class Asset extends Backbone.Model
     mimetype: 'webpage'
     uri: ''
     start_date: now()
-    end_date: now()
+    end_date: from_now a_week
     duration: default_duration
+    is_enabled: 0
+    nocache: 0
 
 API.Assets = class Assets extends Backbone.Collection
   url: "/api/assets"
@@ -49,7 +53,6 @@ API.Assets = class Assets extends Backbone.Collection
 
 
 # Views
-
 class EditAssetView extends Backbone.View
   $f: (field) => @$ "[name='#{field}']" # get field element
   $fv: (field, val...) => (@$f field).val val... # get or set filed value
@@ -132,11 +135,13 @@ class EditAssetView extends Backbone.View
 
     (@$ 'input, select').prop 'disabled', on
     save.done (data) =>
+      isNew = @model.isNew()
       default_duration = @model.get 'duration'
+      @model.id = data.asset_id
       @collection.add @model if not @model.collection
       (@$el.children ":first").modal 'hide'
       _.extend @model.attributes, data
-      @model.collection.add @model unless @edit
+      @model.collection.add @model if isNew
     save.fail =>
       (@$ '.progress').hide()
       (@$ 'input, select').prop 'disabled', off
@@ -157,10 +162,10 @@ class EditAssetView extends Backbone.View
         if ('video' isnt @model.get 'mimetype') and (not (_.isNumber v*1 ) or v*1 < 1)
           'please enter a valid number'
       uri: (v) =>
-        if not @edit and @model.isNew() and ((that.$ '#tab-uri').hasClass 'active') and not url_test v
+        if @model.isNew() and ((that.$ '#tab-uri').hasClass 'active') and not url_test v
           'please enter a valid URL'
       file_upload: (v) =>
-        if not v and not (that.$ '#tab-uri').hasClass 'active'
+        if @model.isNew() and not v and not (that.$ '#tab-uri').hasClass 'active'
           return 'please select a file'
     errors = ([field, v] for field, fn of validators when v = fn (@$fv field))
 
@@ -220,7 +225,7 @@ class AssetRowView extends Backbone.View
       start_date: date_to.string json.start_date
       end_date: date_to.string json.end_date
     (@$ ".delete-asset-button").popover content: get_template 'confirm-delete'
-    (@$ ".toggle input").prop "checked", @model.get 'is_active'
+    (@$ ".toggle input").prop "checked", @model.get 'is_enabled'
     (@$ ".asset-icon").addClass switch @model.get "mimetype"
       when "video"   then "icon-facetime-video"
       when "image"   then "icon-picture"
@@ -229,29 +234,19 @@ class AssetRowView extends Backbone.View
     @el
 
   events:
-    'change .activation-toggle input': 'toggleActive'
+    'change .is_enabled-toggle input': 'toggleIsEnabled'
     'click .edit-asset-button': 'edit'
     'click .delete-asset-button': 'showPopover'
 
-  toggleActive: (e) =>
-    if @model.get 'is_active' then @model.set
-      is_active: no
-      end_date: date_to.iso now()
-    else @model.set
-      is_active: yes
-      start_date: date_to.iso now()
-      end_date: date_to.iso years_from_now 10
-
+  toggleIsEnabled: (e) =>
+    val = (1 + @model.get 'is_enabled') % 2
+    @model.set is_enabled: val
     @setEnabled off
     save = @model.save()
-    delay 300, =>
-      save.done =>
-        @remove()
-        @model.collection.trigger 'add', _ [@model]
-      save.fail =>
-        @model.set @model.previousAttributes(), silent:yes # revert changes
-        @setEnabled on
-        @render()
+    save.done => @setEnabled on
+    save.fail =>
+      @model.set @model.previousAttributes(), silent:yes # revert changes
+      @render()
     yes
 
   setEnabled: (enabled) => if enabled
@@ -290,7 +285,7 @@ class AssetRowView extends Backbone.View
 
 class AssetsView extends Backbone.View
   initialize: (options) =>
-    @collection.bind event, @render for event in ['reset', 'add', 'sync']
+    @collection.bind event, @render for event in ('reset add remove sync'.split ' ')
 
   render: =>
     (@$ "##{which}-assets").html '' for which in ['active', 'inactive']
