@@ -29,6 +29,10 @@ from bottle import route, run, request, error, static_file, response
 from bottle import HTTPResponse
 from bottlehaml import haml_template
 
+from cork import Cork
+from bottle import default_app, view
+from beaker.middleware import SessionMiddleware
+
 from db import connection
 
 from utils import json_dump
@@ -36,6 +40,11 @@ from utils import get_node_ip
 
 from settings import settings, DEFAULTS
 get_current_time = datetime.utcnow
+
+
+aaa = Cork('/home/pi/screenly.auth')
+for u in  aaa.list_users():
+    print str(u)
 
 ################################
 # Utilities
@@ -380,19 +389,47 @@ def remove_asset(asset_id):
     response.status = 204  # return an OK with no content
 
 
+
+################################
+# Login Logout
+################################
+
+@route('/login', method='POST')
+def login():
+    print "CHECK LOGIN"
+    username = request.POST.get('username', '')
+    password = request.POST.get('password', '')
+    aaa.login(username, password, success_redirect='/', fail_redirect='/login')
+
+@route('/logout')
+def logout():
+    aaa.current_user.logout(redirect='/login')
+
+
+@route('/sorry_page')
+def sorry_page():
+    """Serve sorry page"""
+    return '<p>Sorry, you are not authorized to perform this action</p>'
+
+@route('/login')
+def login_form():
+    """Serve login form"""
+    return template('login_form')
+
 ################################
 # Views
 ################################
 
 @route('/')
 def viewIndex():
+    aaa.require(role='admin', fail_redirect='/sorry_page')
     ctx = {'default_duration': settings['default_duration']}
     return template('index',**ctx)
 
 
 @route('/settings', method=["GET", "POST"])
 def settings_page():
-
+    aaa.require(role='admin', fail_redirect='/sorry_page')
     context = {'flash': None}
 
     if request.method == "POST":
@@ -416,6 +453,7 @@ def settings_page():
 
 @route('/system_info')
 def system_info():
+    aaa.require(role='admin', fail_redirect='/sorry_page')
     viewer_log_file = '/tmp/screenly_viewer.log'
     if path.exists(viewer_log_file):
         viewlog = check_output(['tail', '-n', '20', viewer_log_file]).split('\n')
@@ -480,7 +518,24 @@ if __name__ == "__main__":
         mkdir(settings.get_asset_folder())
 
     initiate_db()
+    
+    session_opts = {
+        'session.type': 'cookie',
+        'session.validate_key': True,
+    }
 
-    run(host=settings.get_listen_ip(),
+    # Setup Beaker middleware to handle sessions and cookies
+    app = default_app()
+    session_opts = {
+    'session.type': 'cookie',
+    'session.validate_key': True,
+    'session.cookie_expires': True,
+    'session.timeout': 3600 * 24,  # 1 day
+    'session.encrypt_key': 'STUFF',
+    }
+    app = SessionMiddleware(app, session_opts)
+
+
+    run(app=app,host=settings.get_listen_ip(),
         port=settings.get_listen_port(),
         reloader=True)
