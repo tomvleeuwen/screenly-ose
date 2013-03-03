@@ -413,6 +413,6 @@ if __name__ == "__main__":
     }
     app = SessionMiddleware(app, session_opts)
 
-        run(app=app,host=settings.get_listen_ip(),
+    run(app=app,host=settings.get_listen_ip(),
             port=settings.get_listen_port(),
             reloader=True)
