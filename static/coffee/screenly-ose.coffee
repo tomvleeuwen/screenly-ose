@@ -1,20 +1,13 @@
 ### screenly-ose ui ###
 
 API = (window.Screenly ||= {}) # exports
-API.date_to = date_to =
-  iso:       (d) -> (new Date d).toISOString()
-  string:    (d) -> (moment (new Date d)).format("MM/DD/YYYY hh:mm:ss A")
-  date:      (d) -> (new Date d).toLocaleDateString()
-  time:      (d) -> (new Date d).toLocaleTimeString()
-  timestamp: (d) -> (new Date d).getTime()
+API.date_to = date_to = (d) ->
+  dd = moment (new Date d)
+  string: -> dd.format 'MM/DD/YYYY hh:mm:ss A'
+  date: -> dd.format 'MM/DD/YYYY'
+  time: -> dd.format 'hh:mm A'
 
 now = -> new Date()
-y2ts = (years) -> (years * 365 * 24 * 60 * 60000)
-years_from_now = (years) -> new Date ((y2ts years) + date_to.timestamp now())
-from_now = (->
-  n = now().getTime()
-  (t) -> new Date (t+n))()
-a_week = 7*84600*1000
 
 get_template = (name) -> _.template ($ "##{name}-template").html()
 delay = (wait, fn) -> _.delay fn, wait
@@ -42,7 +35,7 @@ API.Asset = class Asset extends Backbone.Model
     mimetype: 'webpage'
     uri: ''
     start_date: now()
-    end_date: from_now a_week
+    end_date: (moment().add 'days', 7).toDate()
     duration: default_duration
     is_enabled: 0
     nocache: 0
@@ -87,18 +80,17 @@ class EditAssetView extends Backbone.View
     (@$ '.uri-text').html insertWbr @model.get 'uri'
 
     for which in ['start', 'end']
-      date = @model.get "#{which}_date"
-      @$fv "#{which}_date_date", date_to.date date
+      d = date_to @model.get "#{which}_date"
+      @$fv "#{which}_date_date", d.date()
       (@$f "#{which}_date_date").datepicker autoclose: yes
-      (@$f "#{which}_date_date").datepicker 'setValue', date_to.date date
-      @$fv "#{which}_date_time", date_to.time date
+      (@$f "#{which}_date_date").datepicker 'setValue', d.date()
+      @$fv "#{which}_date_time", d.time()
     @delegateEvents()
     no
 
   viewmodel: =>
     for which in ['start', 'end']
-      @$fv "#{which}_date", date_to.iso do =>
-        (@$fv "#{which}_date_date") + " " + (@$fv "#{which}_date_time")
+      @$fv "#{which}_date", (new Date (@$fv "#{which}_date_date") + " " + (@$fv "#{which}_date_time")).toISOString()
     for field in @model.fields when not (@$f field).prop 'disabled'
       @model.set field, (@$fv field), silent:yes
 
@@ -141,7 +133,7 @@ class EditAssetView extends Backbone.View
       @collection.add @model if not @model.collection
       (@$el.children ":first").modal 'hide'
       _.extend @model.attributes, data
-      @model.collection.add @model if isNew
+      @model.collection.add @model unless @edit
     save.fail =>
       (@$ '.progress').hide()
       (@$ 'input, select').prop 'disabled', off
@@ -167,6 +159,9 @@ class EditAssetView extends Backbone.View
       file_upload: (v) =>
         if @model.isNew() and not v and not (that.$ '#tab-uri').hasClass 'active'
           return 'please select a file'
+      end_date: (v) =>
+        unless (new Date @$fv 'start_date') < (new Date @$fv 'end_date')
+          'end date should be after start date'
     errors = ([field, v] for field, fn of validators when v = fn (@$fv field))
 
     (@$ ".control-group.warning .help-inline.warning").remove()
@@ -222,8 +217,8 @@ class AssetRowView extends Backbone.View
   render: =>
     @$el.html @template _.extend json = @model.toJSON(),
       name: insertWbr json.name # word break urls at slashes
-      start_date: date_to.string json.start_date
-      end_date: date_to.string json.end_date
+      start_date: (date_to json.start_date).string()
+      end_date: (date_to json.end_date).string()
     (@$ ".delete-asset-button").popover content: get_template 'confirm-delete'
     (@$ ".toggle input").prop "checked", @model.get 'is_enabled'
     (@$ ".asset-icon").addClass switch @model.get "mimetype"

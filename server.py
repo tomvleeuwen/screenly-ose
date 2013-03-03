@@ -31,6 +31,7 @@ from bottle import default_app, view
 from beaker.middleware import SessionMiddleware
 
 import db
+import queries
 import assets_helper
 
 from utils import json_dump
@@ -395,7 +396,10 @@ if __name__ == "__main__":
         global db_conn
         db_conn = conn
         with db.cursor(db_conn) as c:
-            db.create_assets_table(c)
+            c.execute(queries.exists_table)
+            if c.fetchone() is None:
+                c.execute(assets_helper.create_assets_table)
+
 
     session_opts = {
         'session.type': 'cookie',
