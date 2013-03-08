@@ -24,6 +24,7 @@ from settings import settings
 import html_templates
 
 from utils import validate_url
+from utils import url_fails
 
 import db
 import assets_helper
@@ -32,13 +33,17 @@ import assets_helper
 last_settings_refresh = None
 
 
-#This is the signal handler for SIGUSR1
-#After this returns all sleep() calls are aborted
-#Since we also kill omxplayer it means we abort 
-#displaying the current asset
 def sigusr1(signum, frame):
-	logging.info("Skip current asset")
+        """
+        This is the signal handler for SIGUSR1
+        The signal interrupts sleep() calls, so
+        the currently running asset will be skipped.
+        Since video assets don't have a duration field,
+        the video player has to be killed.
+        """
+        logging.info("Signal received, skipping.")
         system("killall omxplayer.bin")
+
 
 class Scheduler(object):
     def __init__(self, *args, **kwargs):
@@ -258,9 +263,8 @@ def reload_settings():
 
 if __name__ == "__main__":
 
-    #Install signal handler
+    # Install signal handler
     signal.signal(signal.SIGUSR1, sigusr1)
-
 
     # Before we start, reload the settings.
     reload_settings()
@@ -306,7 +310,7 @@ if __name__ == "__main__":
             # The playlist is empty, go to sleep.
             logging.info('Playlist is empty. Going to sleep.')
             sleep(5)
-        else:
+        elif not url_fails(asset['uri']):
             logging.info('Showing asset %s.' % asset["name"])
 
             watchdog()
@@ -322,3 +326,5 @@ if __name__ == "__main__":
                 view_web(asset["uri"], asset["duration"])
             else:
                 print "Unknown MimeType, or MimeType missing"
+        else:
+            logging.info('Asset {0} is not available, skipping.'.format(asset['uri']))

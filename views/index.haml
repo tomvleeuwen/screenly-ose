@@ -14,36 +14,41 @@
     :javascript
       var default_duration = ${default_duration};
 
-    %script(src="/static/js/jquery-1.9.1.min.js")
-    / %script(src="/static/js/bootstrap-dropdown.js")
     %script(src="/static/js/underscore-1.4.3.min.js")
-    %script(src="/static/js/backbone-0.9.10.min.js")
-    %script(src="/static/js/bootstrap.min.js")
+
+    %script(src="/static/js/jquery-1.9.1.min.js")
+    %script(src="/static/js/jquery.iframe-transport.js")
+
+    %script(src="/static/js/backbone-0.9.10.min.js") /needs jquery
+
+    %script(src="/static/js/jquery-ui-1.10.1.custom.min.js")
+    %script(src="/static/js/jquery.fileupload.js") /needs jqueryui.widget
+
+    %script(src="/static/js/bootstrap.min.js") /needs jquery
     %script(src="/static/js/bootstrap-datepicker.js")
     %script(src="/static/js/bootstrap-timepicker.js")
-    %script(src="/static/js/jquery.ui.widget.js")
-    %script(src="/static/js/jquery.iframe-transport.js")
-    %script(src="/static/js/jquery.fileupload.js")
+
     %script(src="/static/js/moment.js")
     %script(src="/static/js/screenly-ose.js")
 
     %script(type="text/template", id="asset-row-template")
-      %td
+      %td.asset_row_name
+        %img(src="static/img/drag-handle.png")
         %i.asset-icon
         :plain
           <%= name %>
-      %td
+      %td(style="width:21%")
         :plain
           <%= start_date %>
-      %td
+      %td(style="width:21%")
         :plain
           <%= end_date %>
-      %td
+      %td.asset_row_btns(style="width:13%")
         %button.edit-asset-button.btn(type="button")
           %i.icon-pencil
         %button.delete-asset-button.btn(type="button", dataTitle="Are you sure?", dataPlacement="left", dataHtml="true", dataTrigger="manual")
           %i.icon-trash
-      %td
+      %td(style="width:7%")
         %label.is_enabled-toggle.checkbox.toggle.well
           %input(type="checkbox")
           %p
@@ -134,6 +139,22 @@
                 .controls
                   %input.span1(type="number", name="duration")
                   seconds
+              .advanced-accordion.accordion
+                .accordion-group
+                  .accrodion-heading
+                    %i.icon-play.unrotated
+                    %a.advanced-toggle(href="#") Advanced
+                  .collapse-advanced.accordion-body.collapse
+                    .accordion-inner
+                      .control-group
+                        %label.control-label Disable cache
+                        .controls.nocache
+                          %label.nocache-toggle.checkbox.toggle.well
+                            %input(type="checkbox", name="nocache")
+                            %p
+                              %span.on Yes
+                              %span.off No
+                            %a.slide-button.btn.btn-primary
 
           .modal-footer
             .pull-left.progress.progress-striped.active(style="display:none")
@@ -185,7 +206,7 @@
             %table.table.table-striped.active-table
               %thead(style="display:none")
                 %tr
-                  %th(style="width:38%") Name
+                  %th.asset_row_name Name
                   %th(style="width:21%") Start
                   %th(style="width:21%") End
                   %th(style="width:13%")
@@ -198,7 +219,7 @@
             %table.table.table-striped.inactive-table
               %thead(style="display:none")
                 %tr
-                  %th(style="width:38%") Name
+                  %th.asset_row_name Name
                   %th(style="width:21%") Start
                   %th(style="width:21%") End
                   %th(style="width:13%")
@@ -215,7 +236,7 @@
         .copy
           &copy; <strong>2012-2013.</strong> WireLoad, Inc., Modifications &copy; <strong>2013</strong> FSG
         %a(id="wireload-logo", href="http://wireload.net/")
-          %img(src="/static/img/wireload-logo.png", alt="Wireload")
+          %img(src="/static/img/wireload-logo.png", alt="WireLoad")
 
 
 

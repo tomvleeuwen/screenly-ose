@@ -56,6 +56,7 @@ class EditAssetView extends Backbone.View
     (@$ 'input.time').timepicker
       minuteStep: 5, showInputs: yes, disableFocus: yes, showMeridian: yes
 
+    (@$ 'input[name="nocache"]').prop 'checked', @model.get 'nocache'
     (@$ '.modal-header .close').remove()
     (@$el.children ":first").modal()
     @model.bind 'change', @render
@@ -85,6 +86,8 @@ class EditAssetView extends Backbone.View
       (@$f "#{which}_date_date").datepicker autoclose: yes
       (@$f "#{which}_date_date").datepicker 'setValue', d.date()
       @$fv "#{which}_date_time", d.time()
+
+    @displayAdvanced()
     @delegateEvents()
     no
 
@@ -101,6 +104,8 @@ class EditAssetView extends Backbone.View
     'keyup': 'change'
     'click .tabnav-uri': 'clickTabNavUri'
     'click .tabnav-file_upload': 'clickTabNavUpload'
+    'click .tabnav-file_upload, .tabnav-uri': 'displayAdvanced'
+    'click .advanced-toggle': 'toggleAdvanced'
     'paste [name=uri]': 'updateUriMimetype'
     'change [name=file_upload]': 'updateFileUploadMimetype'
 
@@ -108,6 +113,7 @@ class EditAssetView extends Backbone.View
     e.preventDefault()
     @viewmodel()
     save = null
+    @model.set 'nocache', if (@$ 'input[name="nocache"]').prop 'checked' then 1 else 0
     if (@$ '#tab-file_upload').hasClass 'active'
       if not @$fv 'name'
         @$fv 'name', get_filename @$fv 'file_upload'
@@ -127,8 +133,6 @@ class EditAssetView extends Backbone.View
 
     (@$ 'input, select').prop 'disabled', on
     save.done (data) =>
-      isNew = @model.isNew()
-      default_duration = @model.get 'duration'
       @model.id = data.asset_id
       @collection.add @model if not @model.collection
       (@$el.children ":first").modal 'hide'
@@ -207,6 +211,18 @@ class EditAssetView extends Backbone.View
     (@$ '#file_upload_label').text (get_filename filename)
     @$fv 'mimetype', mt if mt
 
+  toggleAdvanced: =>
+    (@$ '.icon-play').toggleClass 'rotated'
+    (@$ '.icon-play').toggleClass 'unrotated'
+    (@$ '.collapse-advanced').collapse 'toggle'
+
+  displayAdvanced: =>
+    img = 'image' is @$fv 'mimetype'
+    on_uri_tab = not @edit and (@$ '#tab-uri').hasClass 'active'
+    edit = @edit and url_test @model.get 'uri'
+    has_nocache = img and (on_uri_tab or edit)
+    (@$ '.advanced-accordion').toggle has_nocache is on
+
 
 class AssetRowView extends Backbone.View
   tagName: "tr"
@@ -219,6 +235,7 @@ class AssetRowView extends Backbone.View
       name: insertWbr json.name # word break urls at slashes
       start_date: (date_to json.start_date).string()
       end_date: (date_to json.end_date).string()
+    @$el.prop 'id', @model.get 'asset_id'
     (@$ ".delete-asset-button").popover content: get_template 'confirm-delete'
     (@$ ".toggle input").prop "checked", @model.get 'is_enabled'
     (@$ ".asset-icon").addClass switch @model.get "mimetype"
@@ -241,6 +258,7 @@ class AssetRowView extends Backbone.View
     save.done => @setEnabled on
     save.fail =>
       @model.set @model.previousAttributes(), silent:yes # revert changes
+      @setEnabled on
       @render()
     yes
 
@@ -281,6 +299,14 @@ class AssetRowView extends Backbone.View
 class AssetsView extends Backbone.View
   initialize: (options) =>
     @collection.bind event, @render for event in ('reset add remove sync'.split ' ')
+    @sorted = (@$ '#active-assets').sortable
+      containment: 'parent'
+      axis: 'y'
+      helper: 'clone'
+      update: @update_order
+
+  update_order: =>
+    $.post '/api/assets/order', ids: ((@$ '#active-assets').sortable 'toArray').join ','
 
   render: =>
     (@$ "##{which}-assets").html '' for which in ['active', 'inactive']
@@ -291,6 +317,7 @@ class AssetsView extends Backbone.View
 
     for which in ['inactive', 'active']
       @$(".#{which}-table thead").toggle !!(@$("##{which}-assets tr").length)
+    @update_order()
     @el
 
 
@@ -307,6 +334,7 @@ API.App = class App extends Backbone.View
     API.assetsView = new AssetsView
       collection: API.assets
       el: @$ '#assets'
+
 
   events: {'click #add-asset-button': 'add'}
 

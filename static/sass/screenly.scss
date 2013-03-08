@@ -151,12 +151,46 @@ input[name="file_upload"] {
     width:auto;
 }
 
+@mixin ellip(){
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
 #file_upload_label {
     position: absolute;
     top: 5px;
     left: 105px;
     right: 0;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    overflow: hidden;
+    @include ellip();
 }
+
+.accordion-inner { padding: 9px 0 0 0; }
+.accordion-group { border: none; }
+
+@mixin rota($angle,$time){
+    @each $prefix in webkit moz ms o {
+	-#{$prefix}-transition: all $time linear;
+	-#{$prefix}-transform: rotate($angle);
+    }
+    transition: all $time linear;
+    transform: rotate($angle);
+}
+.unrotated { @include rota(0deg,.15s); }
+.rotated { @include rota(90deg,.15s); }
+.nocache-toggle { padding-top: 0 !important; }
+.advanced-accordion { display: none; }
+.modal-body { max-height: 600px !important; }
+.ui-sortable-helper {
+    background: #fff;
+}
+.asset-icon { margin-left: 5px; }
+#inactive-assets img { display: none; }
+.asset_row_name {
+    @include ellip();
+    max-width: 320px;
+    min-width: 320px;
+}
+.asset_row_btns { padding: 6px 8px 10px 8px !important; }
+.table td { vertical-align: middle !important; }
+.is_enabled-toggle { margin: 5px 0 5px 0 !important; }

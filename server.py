@@ -12,7 +12,6 @@ from functools import wraps
 from hurry.filesize import size
 from os import path, makedirs, getloadavg, statvfs, mkdir, getenv
 from re import split as re_split
-from requests import get as req_get, head as req_head
 from sh import git
 from subprocess import check_output
 from uptime import uptime
@@ -37,6 +36,7 @@ import assets_helper
 from utils import json_dump
 from utils import get_node_ip
 from utils import validate_url
+from utils import url_fails
 
 from settings import settings, DEFAULTS
 get_current_time = datetime.utcnow
@@ -159,18 +159,8 @@ def prepare_asset(request):
         if uri and not uri.startswith('/'):
             if not validate_url(uri):
                 raise Exception("Invalid URL. Failed to add asset.")
-
-            if "image" in asset['mimetype']:
-                file = req_get(uri, allow_redirects=True)
             else:
-                file = req_head(uri, allow_redirects=True)
-
-            if file.status_code == 200:
                 asset['uri'] = uri
-                # strict_uri = file.url
-
-            else:
-                raise Exception("Could not retrieve file. Check the asset URL.")
         else:
             asset['uri'] = uri
 
@@ -234,7 +224,10 @@ def api(view):
 @route('/api/assets', method="POST")
 @api
 def add_asset():
-    return assets_helper.create(db_conn, prepare_asset(request))
+    asset = prepare_asset(request)
+    if url_fails(asset['uri']):
+        raise Exception("Could not retrieve file. Check the asset URL.")
+    return assets_helper.create(db_conn, asset)
 
 
 @route('/api/assets/:asset_id', method="GET")
@@ -262,6 +255,12 @@ def remove_asset(asset_id):
     response.status = 204  # return an OK with no content
 
 
+@route('/api/assets/order', method="POST")
+@api
+def playlist_order():
+    "Receive a list of asset_ids in the order they should be in the playlist"
+    for play_order,asset_id in enumerate(request.POST.get('ids', '').split(',')):
+        assets_helper.update(db_conn, asset_id, {'asset_id':asset_id, 'play_order':play_order})
 
 ################################
 # Login Logout

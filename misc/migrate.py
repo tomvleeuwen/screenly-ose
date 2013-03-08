@@ -56,6 +56,27 @@ def open_db_get_cursor():
         cursor.close()
 
 # ✂--------
+query_add_play_order = """
+begin transaction;
+alter table assets add play_order integer default 0;
+commit;
+"""
+
+
+def migrate_add_play_order():
+    with open_db_get_cursor() as (cursor, conn):
+        col = 'play_order'
+        if test_column(col, cursor):
+            print 'Column (' + col + ') already present'
+        else:
+            print 'Adding new column (' + col + ')'
+            cursor.executescript(query_add_play_order)
+            assets = read(cursor)
+            for asset in assets:
+                asset.update({'play_order': 0})
+                update(cursor, asset['asset_id'], asset)
+                conn.commit()
+# ✂--------
 query_create_assets_table = """
 create table assets(
 asset_id text primary key,
@@ -70,7 +91,7 @@ is_enabled integer default 0,
 nocache integer default 0)"""
 query_make_asset_id_primary_key = """
 begin transaction;
-create table temp as select * from assets;
+create table temp as select asset_id,name,uri,md5,start_date,end_date,duration,mimetype,is_enabled,nocache from assets;
 drop table assets;
 """ + query_create_assets_table + """;
 insert or ignore into assets select * from temp;
@@ -79,9 +100,16 @@ commit;"""
 
 
 def migrate_make_asset_id_primary_key():
+    has_primary_key = False
     with open_db_get_cursor() as (cursor, _):
-        cursor.executescript(query_make_asset_id_primary_key)
-        print 'asset_id is primary key'
+        table_info = cursor.execute('pragma table_info(assets)')
+        has_primary_key = table_info.fetchone()[-1] == 1
+    if has_primary_key:
+        print 'already has primary key'
+    else:
+        with open_db_get_cursor() as (cursor, _):
+            cursor.executescript(query_make_asset_id_primary_key)
+            print 'asset_id is primary key'
 # ✂--------
 query_add_is_enabled_and_nocache = """
 begin transaction;
@@ -163,6 +191,7 @@ if __name__ == '__main__':
     migrate_drop_filename()
     migrate_add_is_enabled_and_nocache()
     migrate_make_asset_id_primary_key()
+    migrate_add_play_order()
     ensure_conf()
     fix_supervisor()
     print "Migration done."
