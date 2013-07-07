@@ -19,8 +19,7 @@ echo "(This might take a while.)"
 sudo apt-get -y upgrade 
 
 echo "Installing dependencies..."
-sudo apt-get -y install git-core python-pip python-netifaces python-simplejson python-imaging uzbl unclutter sqlite3 supervisor omxplayer x11-xserver-utils watchdog chkconfig 
-sudo apt-get -y install python-pycryptopp  python-dev htop vim
+sudo apt-get -y -qq install git-core python-pip python-netifaces python-simplejson python-imaging python-dev uzbl sqlite3 supervisor omxplayer x11-xserver-utils libx11-dev watchdog chkconfig feh > /dev/null
 
 echo "Downloading Screenly-OSE..."
 git clone git://github.com/SebastianSchildt/screenly-ose.git ~/screenly  
@@ -64,6 +63,7 @@ ln -s ~/screenly/misc/gtkrc-2.0 ~/.gtkrc-2.0
 ln -s ~/screenly/misc/lxde-rc.xml ~/.config/openbox/lxde-rc.xml
 [ -f ~/.config/lxpanel/LXDE/panels/panel ] && mv ~/.config/lxpanel/LXDE/panels/panel ~/.config/lxpanel/LXDE/panels/panel.bak
 [ -f /etc/xdg/lxsession/LXDE/autostart ] && sudo mv /etc/xdg/lxsession/LXDE/autostart /etc/xdg/lxsession/LXDE/autostart.bak
+sudo sed -e 's/^#xserver-command=X$/xserver-command=X -nocursor/g' -i /etc/lightdm/lightdm.conf
 
 
 echo "Done."

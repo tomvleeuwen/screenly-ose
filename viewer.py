@@ -2,28 +2,27 @@
 # -*- coding: utf8 -*-
 
 __author__ = "Viktor Petersson"
-__copyright__ = "Copyright 2012, WireLoad Inc"
+__copyright__ = "Copyright 2012-2013, WireLoad Inc"
 __license__ = "Dual License: GPLv2 and Commercial License"
-__version__ = "0.1"
-__email__ = "vpetersson@wireload.net"
 
 from datetime import datetime, timedelta
 from glob import glob
 from os import path, getenv, remove, makedirs
-from os import stat as os_stat, utime, system
+from os import stat as os_stat, utime, system, kill
 from platform import machine
 from random import shuffle
-from requests import get as req_get
+from requests import get as req_get, head as req_head
 from stat import S_ISFIFO
-from subprocess import Popen, call
 from time import sleep, time
+import json
 import logging
+import sh
 import signal
+from ctypes import cdll
 
 from settings import settings
 import html_templates
 
-from utils import validate_url
 from utils import url_fails
 
 import db
@@ -31,18 +30,68 @@ import assets_helper
 # Define to none to ensure we refresh
 # the settings.
 last_settings_refresh = None
+load_screen_pid = None
+is_pro_init = None
+current_browser_url = None
+
+# Detect the architecture and load the proper video player
+arch = machine()
+if arch == 'armv6l':
+    from sh import omxplayer
+elif arch in ['x86_64', 'x86_32']:
+    from sh import mplayer
+
+# Used by send_to_front.
+libx11 = cdll.LoadLibrary('libX11.so')
+
+
+def send_to_front(name):
+    """Instruct X11 to bring a window with the given name in its title to front."""
+
+    r = [l for l in sh.xwininfo('-root', '-tree').split("\n") if name in l]
+    if not len(r) == 1:
+        logging.info("Unable to send window with %s in title to front - %d matches found." % (name, len(r)))
+        return
+    win_id = int(r[0].strip().split(" ", 2)[0], 16)
+
+    dsp = libx11.XOpenDisplay(None)
+    logging.debug("Raising %s window %X to front." % (name, win_id))
+    libx11.XRaiseWindow(dsp, win_id)
+    libx11.XCloseDisplay(dsp)
+
+
+def get_is_pro_init():
+    """
+    Function to handle first-run on Screenly Pro
+    """
+    if path.isfile('/home/pi/.screenly/not_initialized'):
+        return False
+    else:
+        return True
 
 
 def sigusr1(signum, frame):
-        """
-        This is the signal handler for SIGUSR1
-        The signal interrupts sleep() calls, so
-        the currently running asset will be skipped.
-        Since video assets don't have a duration field,
-        the video player has to be killed.
-        """
-        logging.info("Signal received, skipping.")
-        system("killall omxplayer.bin")
+    """
+    This is the signal handler for SIGUSR1
+    The signal interrupts sleep() calls, so
+    the currently running asset will be skipped.
+    Since video assets don't have a duration field,
+    the video player has to be killed.
+    """
+    logging.info("Signal received, skipping.")
+    system("killall omxplayer.bin")
+
+
+def sigusr2(signum, frame):
+    """
+    This is the signal handler for SIGUSR2
+    Resets the last_settings_refresh timestamp to force
+    settings reloading.
+    """
+    global last_settings_refresh
+    logging.info("Signal received, reloading settings.")
+    last_settings_refresh = None
+    reload_settings()
 
 
 class Scheduler(object):
@@ -95,7 +144,7 @@ class Scheduler(object):
 def generate_asset_list():
     logging.info('Generating asset-list...')
     playlist = assets_helper.get_playlist(db_conn)
-    deadline = sorted([ass['end_date'] for ass in playlist])[0]
+    deadline = sorted([asset['end_date'] for asset in playlist])[0] if len(playlist) > 0 else None
     logging.debug('generate_asset_list deadline: %s' % deadline)
 
     if settings['shuffle_playlist']:
@@ -116,18 +165,51 @@ def watchdog():
         utime(watchdog, None)
 
 
+def asset_is_accessible(uri):
+    """
+    Determine if content is accessible or not.
+    """
+
+    asset_folder = path.join(getenv('HOME'), 'screenly_assets')
+    # If it's local content, just check if the file exist on disk.
+
+    if ((asset_folder in uri) or (html_folder in uri) and path.exists(uri)):
+        return True
+
+    try:
+        # Give up if we can't even get the header in five seconds.
+        remote_asset_status = req_head(uri, timeout=5, allow_redirects=True).status_code
+        if remote_asset_status == 200:
+            return True
+        else:
+            return False
+    except:
+        return False
+
+
 def load_browser():
     logging.info('Loading browser...')
-    browser_bin = "uzbl-browser"
-    browser_resolution = settings['resolution']
 
-    if settings['show_splash']:
+    global is_pro_init, current_browser_url
+    is_pro_init = get_is_pro_init()
+    if not is_pro_init:
+        logging.debug('Detected Pro initiation cycle.')
+
+        # Wait for the intro file to exist (if it doesn't)
+        intro_file = '/home/pi/.screenly/intro.html'
+        while not path.isfile(intro_file):
+            logging.debug('intro.html missing. Going to sleep.')
+            sleep(0.5)
+
+        browser_load_url = 'file://' + intro_file
+
+    elif settings['show_splash']:
         browser_load_url = "http://%s:%s/splash_page" % (settings.get_listen_ip(), settings.get_listen_port())
     else:
         browser_load_url = black_page
 
-    browser_args = [browser_bin, "--geometry=" + browser_resolution, "--uri=" + browser_load_url]
-    browser = Popen(browser_args)
+    browser = sh.Command('uzbl-browser')(uri=browser_load_url, _bg=True)
+    current_browser_url = browser_load_url
 
     logging.info('Browser loaded. Running as PID %d.' % browser.pid)
 
@@ -142,50 +224,137 @@ def load_browser():
 
 
 def get_fifo():
-    candidates = glob('/tmp/uzbl_fifo_*')
-    for file in candidates:
-        if S_ISFIFO(os_stat(file).st_mode):
-            return file
-    return None
+    """
+    Look for UZBL's FIFO-file in /tmp.
+    Don't give up until it has been found.
+    """
+    found_fifo = False
+    fifo = None
+
+    logging.debug('Looking for UZBL fifo...')
+
+    while not found_fifo:
+        candidates = glob('/tmp/uzbl_fifo_*')
+        for file in candidates:
+            if S_ISFIFO(os_stat(file).st_mode):
+                found_fifo = True
+                fifo = file
+        sleep(0.5)
+    logging.debug('Found UZBL fifo  in %s.' % file)
+    return fifo
 
 
-def browser_set(set_data):
+def browser_fifo(data):
     f = open(fifo, 'a')
-    f.write('set %s\n' % set_data)
+    f.write('%s\n' % data)
     f.close()
 
 
+def browser_socket(command, timeout=0.5):
+    """Like browser_fifo but also read back any immediate response from UZBL.
+
+    Note that the response can be anything, including events entirely unrelated
+    to the command executed.
+    """
+
+    uzbl_socket = "/tmp/uzbl_socket_%d" % browser_pid
+    r = sh.socat("-t%f" % timeout, "-", "unix-connect:%s" % uzbl_socket, _in=command + "\n")
+    # Very spammy.
+    # logging.debug("browser_socket(%r) -> %r" % (command, r))
+    return r
+
+
+def browser_page_has(name):
+    """Return true if the given name is defined on the currently loaded browser page."""
+
+    positive_response = "COMMAND_EXECUTED js  'typeof(%s) !== \\'undefined\\''\ntrue" % name
+    return positive_response in browser_socket("js typeof(%s) !== 'undefined'" % name)
+
+
+def browser_reload(force=False):
+    """
+    Reload the browser. Use to Force=True to force-reload
+    """
+
+    if not force:
+        reload_command = 'reload'
+    else:
+        reload_command = 'reload_ign_cache'
+
+    browser_fifo(reload_command)
+
+
+def browser_clear():
+    """Clear the browser if necessary.
+
+    Call this function right before displaying now browser content (with feh or omx).
+
+    When a web assset is loaded into the browser, it's not cleared after the duration but instead
+    remains displayed until the next asset is ready to show. This minimises the amount of transition
+    time - in the case where the next asset is also web content the browser is never cleared,
+    and in other cases it's cleared as late as possible.
+
+    """
+
+    if current_browser_url != black_page:
+        browser_url(black_page)
+
+
 def browser_url(url):
-    browser_set('uri = %s' % url)
+    try: browser_page_has('life')
+    except sh.ErrorReturnCode_1 as e:
+        logging.exception('browser socket dead, restarting browser')
+        global fifo, browser_pid
+        browser_pid = load_browser().pid
+        fifo = get_fifo()
+        disable_browser_status()
+
+    global current_browser_url
+
+    if url == current_browser_url:
+        logging.debug("Already showing %s, keeping it." % url)
+        return
+    browser_fifo('set uri = %s' % url)
+    current_browser_url = url
 
 
 def disable_browser_status():
     logging.debug('Disabled status-bar in browser')
-    browser_set('show_status = 0')
+    browser_fifo('set show_status = 0')
 
 
-def view_image(image, asset_id, duration):
-    logging.debug('Displaying image %s for %s seconds.' % (image, duration))
-    url = html_templates.image_page(image, asset_id)
-    browser_url(url)
+def view_image(uri, duration):
+    logging.debug('Displaying image %s for %s seconds.' % (uri, duration))
 
-    sleep(int(duration))
+    if asset_is_accessible(uri):
+        run = sh.feh(uri, scale_down=True, borderless=True, fullscreen=True, cycle_once=True, slideshow_delay=duration, _bg=True)
+        # Wait until feh is starting before clearing the browser. This minimises delay between
+        # web and image content.
+        browser_clear()
+        run.wait()
+    else:
+        logging.debug('Received non-200 status (or file not found if local) from %s. Skipping.' % (uri))
 
-    browser_url(black_page)
 
-
-def view_video(video):
-    arch = machine()
+def view_video(uri):
 
     ## For Raspberry Pi
-    if arch == "armv6l":
-        logging.debug('Displaying video %s. Detected Raspberry Pi. Using omxplayer.' % video)
-        omxplayer = "omxplayer"
-        omxplayer_args = [omxplayer, "-o", settings['audio_output'], str(video)]
-        run = call(omxplayer_args, stdout=True)
-        logging.debug(run)
+    if arch == 'armv6l':
+        logging.debug('Displaying video %s. Detected Raspberry Pi. Using omxplayer.' % uri)
 
-        if run != 0:
+        if asset_is_accessible(uri):
+            run = omxplayer(uri, o=settings['audio_output'], _bg=True)
+        else:
+            logging.debug('Content is unaccessible. Skipping...')
+            return
+
+        # Wait until omxplayer is starting before clearing the browser. This minimises delay between
+        # web and image content. Omxplayer will run on top of the browser so the delay in clearing
+        # won't be visible. This minimises delay between web and video.
+        browser_clear()
+        run.wait()
+
+        if run.exit_code != 0:
             logging.debug("Unclean exit: " + str(run))
 
         # Clean up after omxplayer
@@ -195,52 +364,93 @@ def view_video(video):
 
     ## For x86
     elif arch in ['x86_64', 'x86_32']:
-        logging.debug('Displaying video %s. Detected x86. Using mplayer.' % video)
-        mplayer = "mplayer"
-        run = call([mplayer, "-fs", "-nosound", str(video)], stdout=False)
-        if run != 0:
+        logging.debug('Displaying video %s. Detected x86. Using mplayer.' % uri)
+
+        if asset_is_accessible(uri):
+            run = mplayer(uri, fs=True, nosound=True, _bg=True)
+        else:
+            logging.debug('Content is unaccessible. Skipping...')
+            return
+
+        browser_clear()
+        run.wait()
+
+        if run.exit_code != 0:
             logging.debug("Unclean exit: " + str(run))
 
 
 def view_web(url, duration):
-    # If local web page, check if the file exist. If remote, check if it is
-    # available.
-    if (html_folder in url and path.exists(url)):
-        web_resource = 200
-    else:
-        web_resource = req_get(url).status_code
-
-    if web_resource == 200:
+    if asset_is_accessible(url):
         logging.debug('Web content appears to be available. Proceeding.')
         logging.debug('Displaying url %s for %s seconds.' % (url, duration))
+
         browser_url(url)
 
         sleep(int(duration))
-
-        browser_url(url)
     else:
         logging.debug('Received non-200 status (or file not found if local) from %s. Skipping.' % (url))
+
+
+def toggle_load_screen(status=True):
+    """
+    Toggle the load screen. Set status to either True or False.
+    """
+
+    load_screen = '/home/pi/screenly/loading.jpg'
+    global load_screen_pid
+
+    if status and path.isfile(load_screen):
+        if not load_screen_pid:
+            image_loader = sh.feh(load_screen, scale_down=True, borderless=True, fullscreen=True, _bg=True)
+            load_screen_pid = image_loader.pid
+            logging.debug("Load screen PID: %d." % load_screen_pid)
+        else:
+            # If we're already showing the load screen, just make sure it's on top.
+            send_to_front("feh")
+    elif not status and load_screen_pid:
+        logging.debug("Killing load screen with PID: %d." % load_screen_pid)
+        kill(load_screen_pid, signal.SIGTERM)
+        load_screen_pid = None
+
+    return load_screen_pid
 
 
 def check_update():
     """
     Check if there is a later version of Screenly-OSE
     available. Only do this update once per day.
+
+    Return True if up to date was written to disk,
+    False if no update needed and None if unable to check.
     """
 
     sha_file = path.join(getenv('HOME'), '.screenly', 'latest_screenly_sha')
 
-    try:
+    if path.isfile(sha_file):
         sha_file_mtime = path.getmtime(sha_file)
         last_update = datetime.fromtimestamp(sha_file_mtime)
-    except:
+    else:
         last_update = None
 
+    logging.debug('Last update: %s' % str(last_update))
+
     if last_update is None or last_update < (datetime.now() - timedelta(days=1)):
-        latest_sha = req_get('http://stats.screenlyapp.com/latest')
-        if latest_sha.status_code == 200:
-            with open(sha_file, 'w') as f:
-                f.write(latest_sha.content.strip())
+
+        if asset_is_accessible('http://stats.screenlyapp.com'):
+            latest_sha = req_get('http://stats.screenlyapp.com/latest')
+
+            if latest_sha.status_code == 200:
+                with open(sha_file, 'w') as f:
+                    f.write(latest_sha.content.strip())
+                return True
+            else:
+                logging.debug('Received on 200-status')
+                return
+        else:
+            logging.debug('Unable to retreive latest SHA')
+            return
+    else:
+        return False
 
 
 def reload_settings():
@@ -257,14 +467,20 @@ def reload_settings():
     if not last_settings_refresh or settings_file_timestamp > last_settings_refresh:
         settings.load()
 
+    logging.getLogger().setLevel(logging.DEBUG if settings['debug_logging'] else logging.INFO)
+
     global last_setting_refresh
     last_setting_refresh = datetime.utcnow()
 
 
 if __name__ == "__main__":
 
-    # Install signal handler
+    # Bring up load screen
+    toggle_load_screen(True)
+
+    # Install signal handlers
     signal.signal(signal.SIGUSR1, sigusr1)
+    signal.signal(signal.SIGUSR2, sigusr2)
 
     # Before we start, reload the settings.
     reload_settings()
@@ -289,12 +505,39 @@ if __name__ == "__main__":
     logging.debug('Getting FIFO.')
     fifo = get_fifo()
 
+    logging.debug('Disable the browser status bar.')
+    disable_browser_status()
+
+    # Disable load screen early if initialization mode
+    if not is_pro_init:
+        toggle_load_screen(False)
+
+    # Wait until initialized (Pro only).
+    did_show_pin = False
+    did_show_claimed = False
+    while not get_is_pro_init():
+        # Wait for the status page to fully load.
+        while not browser_page_has("showPin"):
+            logging.debug("Waiting for intro page to load...")
+            sleep(1)
+
+        with open('/home/pi/.screenly/setup_status.json', 'rb') as status_file:
+            status = json.load(status_file)
+
+        if not did_show_pin and not did_show_claimed and status.get('pin'):
+            browser_fifo('''js showPin("%s")''' % status.get('pin').replace('"', '\\"'))
+            did_show_pin = True
+
+        if not did_show_claimed and status.get('claimed'):
+            browser_fifo('''js showUpdating()''')
+            did_show_claimed = True
+
+        logging.debug('Waiting for node to be initialized.')
+        sleep(1)
+
     # Bring up the blank page (in case there are only videos).
     logging.debug('Loading blank page.')
     view_web(black_page, 1)
-
-    logging.debug('Disable the browser status bar.')
-    disable_browser_status()
 
     scheduler = Scheduler()
 
@@ -302,24 +545,25 @@ if __name__ == "__main__":
     logging.debug('Entering infinite loop.')
     while True:
         asset = scheduler.get_next_asset()
-        logging.debug('got asset' + str(asset))
+        logging.debug('got asset %s' % asset)
 
-        check_update()
+        is_up_to_date = check_update()
+        logging.debug('Check update: %s' % str(is_up_to_date))
 
         if asset is None:
             # The playlist is empty, go to sleep.
             logging.info('Playlist is empty. Going to sleep.')
+            toggle_load_screen(True)
+            browser_clear()
             sleep(5)
         elif not url_fails(asset['uri']):
+            toggle_load_screen(False)
             logging.info('Showing asset %s.' % asset["name"])
 
             watchdog()
 
             if "image" in asset["mimetype"]:
-                img_uri = asset['uri']
-                if asset['nocache'] == 1 and validate_url(img_uri):
-                    img_uri += '?_nocache=' + str(time())
-                view_image(img_uri, asset["asset_id"], asset["duration"])
+                view_image(asset['uri'], asset["duration"])
             elif "video" in asset["mimetype"]:
                 view_video(asset["uri"])
             elif "web" in asset["mimetype"]:

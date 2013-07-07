@@ -4,9 +4,9 @@ LOG=/tmp/screenly_xloader.log
 
 echo "Disabling screen power savings..." > $LOG
 
-xset s off         # don't activate screensaver
-xset -dpms         # disable DPMS (Energy Star) features.
-xset s noblank     # don't blank the video device
+xset s off                         # Don't activate screensaver
+xset -dpms                         # Disable DPMS (Energy Star) features
+xset s noblank                     # Don't blank the video device
 
 sleep 5
 
@@ -19,7 +19,7 @@ do
 	killall omxplayer omxplayer.bin
 	rm -f /tmp/uzbl_*
 	rm -f /tmp/screenly_html/*
-    
+
 	# Launch the viewer
 	python ~/screenly/viewer.py >> $LOG 2>&1
 done
