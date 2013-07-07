@@ -13,7 +13,7 @@ from hurry.filesize import size
 from os import path, makedirs, getloadavg, statvfs, mkdir, getenv
 from re import split as re_split
 from sh import git
-from subprocess import check_output
+from subprocess import check_output, call
 from uptime import uptime
 from urlparse import urlparse
 import json
@@ -21,7 +21,7 @@ import os
 import traceback
 import uuid
 
-from bottle import route, run, request, error, static_file, response
+from bottle import route, run, request, error, static_file, response, redirect
 from bottle import HTTPResponse
 from bottlehaml import haml_template
 
@@ -263,6 +263,17 @@ def playlist_order():
     "Receive a list of asset_ids in the order they should be in the playlist"
     for play_order,asset_id in enumerate(request.POST.get('ids', '').split(',')):
         assets_helper.update(db_conn, asset_id, {'asset_id':asset_id, 'play_order':play_order})
+
+
+################################
+# Asset skip
+################################
+@route('/skip')
+def skip():
+    print("Skip asset")
+    ret=call("""kill -s USR1 $(ps a | grep  -e [v]iewer.py\$ | awk '{ print $1 }')""", shell=True)
+    print("RC "+str(ret))
+    redirect('/')
 
 ################################
 # Login Logout
