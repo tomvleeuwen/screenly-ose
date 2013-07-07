@@ -68,6 +68,8 @@ def is_up_to_date():
     Used in conjunction with check_update() in viewer.py.
     """
 
+    return True
+    
     sha_file = path.join(getenv('HOME'), '.screenly', 'latest_screenly_sha')
 
     # Until this has been created by viewer.py, let's just assume we're up to date.
@@ -275,13 +277,13 @@ def login():
 
 @route('/logout')
 def logout():
-    aaa.current_user.logout(redirect='/login')
+    aaa.logout()
 
 
 @route('/sorry_page')
 def sorry_page():
     """Serve sorry page"""
-    return '<p>Sorry, you are not authorized to perform this action</p>'
+    return '<html><head><title>Access denied.</title></head><body><p>Sorry, you are not authorized to perform this action. You can try to <a href="./login">login here.</a></p></body></html>'
 
 @route('/login')
 def login_form():
