@@ -20,6 +20,9 @@ DEFAULTS = {
         'shuffle_playlist': False,
         'resolution': '1920x1080',
         'default_duration': '10',
+    },
+    'beacon': {
+      'mothership': 'mothership:8080',
     }
 }
 
