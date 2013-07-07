@@ -423,7 +423,7 @@ def check_update():
     Return True if up to date was written to disk,
     False if no update needed and None if unable to check.
     """
-
+    return True
     sha_file = path.join(getenv('HOME'), '.screenly', 'latest_screenly_sha')
 
     if path.isfile(sha_file):
