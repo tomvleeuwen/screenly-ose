@@ -32,7 +32,7 @@ def CheckAuth(headerdata):
 	if pwf == None:
 		return False
 	pw=pwf.readline().strip().split(":")
-	print(str(pw))	
+	pwf.close()
 	auth = re.sub('^Basic ','',headerdata)
 	username,password = base64.decodestring(auth).split(':')
 	return str(pw[0]) == str(username) and str(pw[1]) == str(password)
