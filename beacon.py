@@ -22,7 +22,7 @@ def get_ip(iface = 'eth0'):
 
  
 ip=get_ip('eth0')
-uuid=uuid.getnode()
+uuid="%x" % uuid.getnode()
 
 sleep=30
 
@@ -36,10 +36,13 @@ while True:
 	params = urllib.urlencode({'uuid': uuid, 'ip': str(ip)+":"+str(port)})
 	headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
 	conn = httplib.HTTPConnection(mothership)
-	conn.request("POST", "/beacon", params, headers)
-	response = conn.getresponse()
-	print(str(datetime.datetime.now())+" Beacon: "+str(response.status)+" ("+str(response.reason)+")")
-        conn.close()
+	try:
+		conn.request("POST", "/beacon", params, headers)
+		response = conn.getresponse()
+		print(str(datetime.datetime.now())+" Beacon: "+str(response.status)+" ("+str(response.reason)+")")
+        	conn.close()
+	except Exception as e:
+		print(str(datetime.datetime.now())+" Beaconing failed: "+str(e))
 	time.sleep(sleep)
 
 print("Beaconing stop")
