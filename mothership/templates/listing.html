@@ -7,24 +7,33 @@
 <script type="text/javascript" charset="utf-8">
 J = jQuery;
 
-var aDataSet=[["OLDCRAP", "sdsdsdsdsd", "2013-03-08 16:25:S"]]
-
+var aDataSet=[["0", "None", "N/a", "2013-03-08 16:25:S"]]
+	
 
 J(document).ready(function() {
 			J('#pods').dataTable( {
 					"aaData": aDataSet,
 					"aoColumns": [
 						{ "sTitle": "UUID" },
+						{ "sTitle": "Label"},
 						{ "sTitle": "Destination" },
 						{ "sTitle": "Last Seen" }						
 					],
                     "aoColumnDefs": [ {
-                       "aTargets": [ 1 ],
-                       "mData": "1",
+                       "aTargets": [ 2 ],
+                       "mData": "2",
                        "mRender": function ( data, type, full ) {
                            return '<a href="http://'+data+'" target="_new">'+data+'</a>';
                          }
-                    } ]
+                    },
+			{
+                       "aTargets": [ 1 ],
+                       "mData": "1",
+                       "mRender": function ( data, type, full ) {
+                           return '<a href="#" id="chLabel">'+data+'</a>';
+                         }
+                    }
+			]
 
 				} ); 
 			
@@ -35,12 +44,26 @@ J(document).ready(function() {
 				J('#pods').dataTable().fnClearTable();         
 				J('#pods').dataTable().fnAddData(data);         
           });
+	  
+	
+  J("#pods tbody").on("click","#chLabel",function(event){
+	var label=prompt("Enter new label",event.currentTarget.firstChild.data);
+	var uuid=event.currentTarget.parentElement.parentElement.children[0].firstChild.data
+	if (label!=null && label!="") {
+		//alert("New label " + label);
+		J.post("setlabel", { l: label, u: uuid } ).done(function(data) {
+			window.location.replace("./");
+		});;
+	}
+	
+	return false; 
+	});
 
-		} );
+
+} );
 </script>
 
-<h1>Available FSG screens</h1>
-
+<h1>Available FSG Screens</h1>
 
 <table cellpadding="0" cellspacing="0" border="0" class="display" id="pods"></table>
 

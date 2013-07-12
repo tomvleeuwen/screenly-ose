@@ -13,6 +13,7 @@ urls = (
 	'/beacon', 'Beacon',
     '/dbcontents', 'DumpDB',
     '/login','Login',
+    '/setlabel', 'SetLabel',
 )
 
 
@@ -90,13 +91,27 @@ class DumpDB:
 		allPods=db.getAll()
 		allPodsJSON=DB_JSON_TOP
 		for pod in allPods:
-			allPodsJSON+='["'+str(pod[0])+'", "'+str(pod[1])+'", "'+str(pod[2])+'"],'
+			allPodsJSON+='["'+str(pod[0])+'", "'+str(pod[1])+'", "'+str(pod[2])+'", "'+str(pod[3]) +'"],'
 		
 		if len(allPods) >= 1:
 			allPodsJSON=allPodsJSON[:-1]
         
 		allPodsJSON+=DB_JSON_BOTTOM
 		return allPodsJSON
+
+class SetLabel:
+	def POST(self):
+		""" receive new label """
+		user_data = web.input(u=None, l=None)
+		if user_data.l==None or user_data.u == None:
+			print("INCOMPLETE")
+			return "FAIL"
+		else:
+			#print("Change "+str(user_data.u)+" to "+str(user_data.l))
+			db.updateLabel(str(user_data.u),str(user_data.l))
+			return "OK"
+		
+
 
 class Beacon:
 	def POST(self):
