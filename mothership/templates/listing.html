@@ -17,7 +17,13 @@ J(document).ready(function() {
 						{ "sTitle": "UUID" },
 						{ "sTitle": "Label"},
 						{ "sTitle": "Destination" },
-						{ "sTitle": "Last Seen" }						
+						{ "sTitle": "Last Seen" },
+						{
+						"sTitle": "Actions",
+						"mData": null,
+						"sClass": "center",
+						"sDefaultContent": '<a href="#" id="delete">Delete</a> '
+						}						
 					],
                     "aoColumnDefs": [ {
                        "aTargets": [ 2 ],
@@ -58,6 +64,19 @@ J(document).ready(function() {
 	
 	return false; 
 	});
+	
+	J("#pods tbody").on("click","#delete",function(event){
+	var uuid=event.currentTarget.parentElement.parentElement.children[0].firstChild.data
+	var res=confirm("Really delete "+uuid+"?");
+	if (res == true) {
+		J.post("delete", {  u: uuid } ).done(function(data) {
+			window.location.replace("./");
+		});;
+	}
+	
+	return false; 
+	});
+
 
 
 } );
