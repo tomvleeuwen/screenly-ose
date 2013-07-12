@@ -14,6 +14,7 @@ urls = (
     '/dbcontents', 'DumpDB',
     '/login','Login',
     '/setlabel', 'SetLabel',
+    '/delete', 'DeletePod',
 )
 
 
@@ -102,6 +103,9 @@ class DumpDB:
 class SetLabel:
 	def POST(self):
 		""" receive new label """
+		if not CheckAuth(web.ctx.env.get('HTTP_AUTHORIZATION')):
+			raise web.seeother('/login')
+			return
 		user_data = web.input(u=None, l=None)
 		if user_data.l==None or user_data.u == None:
 			print("INCOMPLETE")
@@ -111,6 +115,21 @@ class SetLabel:
 			db.updateLabel(str(user_data.u),str(user_data.l))
 			return "OK"
 		
+
+class DeletePod:
+	def POST(self):
+		""" receive new label """
+		if not CheckAuth(web.ctx.env.get('HTTP_AUTHORIZATION')):
+			raise web.seeother('/login')
+			return
+		user_data = web.input(u=None)
+		if user_data.u == None:
+			print("INCOMPLETE")
+			return "FAIL"
+		else:
+			#print("Delete "+str(user_data.u))
+			db.delete(str(user_data.u))
+			return "OK"
 
 
 class Beacon:
