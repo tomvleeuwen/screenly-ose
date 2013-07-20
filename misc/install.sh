@@ -19,13 +19,17 @@ echo "(This might take a while.)"
 sudo apt-get -y upgrade 
 
 echo "Installing dependencies..."
-sudo apt-get -y -qq install git-core python-pip python-netifaces python-simplejson python-imaging python-dev uzbl sqlite3 supervisor omxplayer x11-xserver-utils libx11-dev watchdog chkconfig feh > /dev/null
-
+sudo apt-get  install git-core python-pip python-netifaces python-simplejson python-imaging python-dev uzbl sqlite3 supervisor omxplayer x11-xserver-utils libx11-dev watchdog chkconfig feh python-pycryptopp 
 echo "Downloading Screenly-OSE..."
 git clone git://github.com/SebastianSchildt/screenly-ose.git ~/screenly  
 
 echo "Installing more dependencies..."
 sudo pip install -r ~/screenly/requirements.txt 
+
+echo "Add auth information"
+mkdir ~/screenly.auth
+
+pyhton ~/screenly/misc/createAuth.py
 
 #Todo, only add once
 echo "Adding Screenly to X auto start..."
