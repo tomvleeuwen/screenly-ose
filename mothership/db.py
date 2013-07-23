@@ -28,7 +28,10 @@ def addEntry(uuid,dst):
 	timestamp=datetime.now()
 	timestr=timestamp.strftime("%Y-%m-%d %H:%M:%S")
 	cur = conn.cursor()
-	cur.execute("INSERT OR REPLACE INTO pod(uuid,destination,lastseen) VALUES(?,?,?)", (str(uuid), str(dst),str(timestr)));
+	
+	cur.execute("INSERT OR IGNORE INTO pod(uuid,destination,lastseen) VALUES(?,?,?)", (str(uuid), str(dst),str(timestr)));
+	cur.execute("UPDATE pod SET destination=?, lastseen=? WHERE uuid=?", ( str(dst), str(timestr), str(uuid)))
+
 	conn.commit()
 
 
