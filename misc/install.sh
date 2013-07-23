@@ -52,6 +52,7 @@ sudo /etc/init.d/watchdog start
 
 echo "Adding Screenly to autostart (via Supervisord)"
 sudo ln -s ~/screenly/misc/supervisor_screenly.conf /etc/supervisor/conf.d/screenly.conf
+sudo ln -s ~/screenly/misc/supervisor_beacon.conf /etc/supervisor/conf.d/beacon.conf
 sudo /etc/init.d/supervisor stop 
 sudo /etc/init.d/supervisor start 
 
