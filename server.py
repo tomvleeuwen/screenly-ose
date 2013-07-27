@@ -271,7 +271,7 @@ def playlist_order():
 @route('/skip')
 def skip():
     print("Skip asset")
-    ret=call("""kill -s USR1 $(ps a | grep  -e [v]iewer.py\$ | awk '{ print $1 }')""", shell=True)
+    ret=call("""kill -s USR1 $(ps ax | grep  -e [v]iewer.py\$ | awk '{ print $1 }')""", shell=True)
     print("RC "+str(ret))
     redirect('/')
 
