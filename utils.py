@@ -1,8 +1,19 @@
 import requests
 import json
+import re
 from netifaces import ifaddresses
 from sh import grep, netstat
 from urlparse import urlparse
+from datetime import timedelta
+from settings import settings
+
+# This will only work on the Raspberry Pi,
+# so let's wrap it in a try/except so that
+# Travis can run.
+try:
+    from sh import omxplayer
+except:
+    pass
 
 
 def validate_url(string):
@@ -40,6 +51,30 @@ def get_node_ip():
     return None
 
 
+def get_video_duration(file):
+    """
+    Returns the duration of a video file in timedelta.
+    """
+    time = None
+    try:
+        run_omxplayer = omxplayer(file, info=True, _err_to_out=True)
+        for line in run_omxplayer.split('\n'):
+            if 'Duration' in line:
+                match = re.search(r'[0-9]+:[0-9]+:[0-9]+\.[0-9]+', line)
+                if match:
+                    time_input = match.group()
+                    time_split = time_input.split(':')
+                    hours = int(time_split[0])
+                    minutes = int(time_split[1])
+                    seconds = float(time_split[2])
+                    time = timedelta(hours=hours, minutes=minutes, seconds=seconds)
+                break
+    except:
+        pass
+
+    return time
+
+
 def handler(obj):
     if hasattr(obj, 'isoformat'):
         return obj.isoformat()
@@ -52,11 +87,15 @@ def json_dump(obj):
 
 
 def url_fails(url):
+    """
+    Accept 200 and 405 as 'OK' statuses for URLs.
+    Some hosting providers (like Google App Engine) throws a 405 at `requests`.
+    """
     try:
         if validate_url(url):
-            obj = requests.head(url, allow_redirects=True)
-            assert obj.status_code == 200
-    except (requests.ConnectionError, AssertionError):
+            obj = requests.head(url, allow_redirects=True, timeout=10, verify=settings['verify_ssl'])
+            assert obj.status_code in (200, 405)
+    except (requests.ConnectionError, requests.exceptions.Timeout, AssertionError):
         return True
     else:
         return False
