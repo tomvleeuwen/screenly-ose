@@ -52,7 +52,7 @@ sudo pip install -r ~/screenly/requirements.txt
 echo "Add auth information"
 mkdir ~/screenly.auth
 
-pyhton ~/screenly/misc/createAuth.py
+python ~/screenly/misc/createAuth.py
 
 #Todo, only add once
 echo "Adding Screenly to X auto start..."
