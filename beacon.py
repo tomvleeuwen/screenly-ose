@@ -39,10 +39,10 @@ while True:
 	try:
 		conn.request("POST", "/beacon", params, headers)
 		response = conn.getresponse()
-		print(str(datetime.datetime.now())+" Beacon: "+str(response.status)+" ("+str(response.reason)+")")
+		print(str(datetime.datetime.now())+" Beacon to "+str(mothership)+": "+str(response.status)+" ("+str(response.reason)+")")
         	conn.close()
 	except Exception as e:
-		print(str(datetime.datetime.now())+" Beaconing failed: "+str(e))
+		print(str(datetime.datetime.now())+" Beaconing to "+str(mothership)+" failed: "+str(e))
 	time.sleep(sleep)
 
 print("Beaconing stop")
