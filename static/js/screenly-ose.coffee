@@ -14,12 +14,18 @@ delay = (wait, fn) -> _.delay fn, wait
 
 mimetypes = [ [('jpg jpeg png pnm gif bmp'.split ' '), 'image']
               [('avi mkv mov mpg mpeg mp4 ts flv'.split ' '), 'video']]
+viduris   = ('rtsp rtmp'.split ' ')
+
+
 get_mimetype = (filename) =>
+  scheme = (_.first filename.split ':').toLowerCase()
+  match = scheme in viduris
+  if match then return 'video'
   ext = (_.last filename.split '.').toLowerCase()
   mt = _.find mimetypes, (mt) -> ext in mt[0]
   if mt then mt[1] else null
 
-url_test = (v) -> /(http|https|rtsp):\/\/[\w-]+(\.?[\w-]+)+([\w.,@?^=%&amp;:\/~+#-]*[\w@?^=%&amp;\/~+#-])?/.test v
+url_test = (v) -> /(http|https|rtsp|rtmp):\/\/[\w-]+(\.?[\w-]+)+([\w.,@?^=%&amp;:\/~+#-]*[\w@?^=%&amp;\/~+#-])?/.test v
 get_filename = (v) -> (v.replace /[\/\\\s]+$/g, '').replace /^.*[\\\/]/g, ''
 insertWbr = (v) -> (v.replace /\//g, '/<wbr>').replace /\&/g, '&amp;<wbr>'
 
@@ -236,7 +242,7 @@ API.View.EditAssetView = class EditAssetView extends Backbone.View
     if mt != "video"
     	@$fv 'duration', default_duration
     else
-    	@$fv 'duration', -1 
+    	@$fv 'duration', 0 
 
 
 
