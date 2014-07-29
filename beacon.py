@@ -21,8 +21,14 @@ def get_ip(iface = 'eth0'):
 
 
  
-ip=get_ip('eth0')
-uuid="%x" % uuid.getnode()
+ip=None
+
+while ip == None:
+	print(str(datetime.datetime.now())+" Wait vor IP on eth0")
+	ip=get_ip('eth0')
+	uuid="%x" % uuid.getnode()
+	time.sleep(5)
+
 
 sleep=30
 
