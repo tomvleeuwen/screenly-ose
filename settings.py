@@ -22,7 +22,7 @@ DEFAULTS = {
         'resolution': '1920x1080',
         'default_duration': '10',
         'debug_logging': False,
- 		'use_24_hour_clock': False
+ 	'use_24_hour_clock': False,
 	'verify_ssl': True,
     },
     'beacon': {
