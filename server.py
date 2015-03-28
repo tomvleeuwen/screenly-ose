@@ -105,6 +105,7 @@ def template(template_name, **context):
     # Add global contexts
     context['up_to_date'] = is_up_to_date()
     context['default_duration'] = settings['default_duration']
+    context['use_24_hour_clock'] = settings['use_24_hour_clock']
 
     return haml_template(template_name, **context)
 
@@ -436,5 +437,5 @@ if __name__ == "__main__":
     app = SessionMiddleware(app, session_opts)
 
     run(app=app,host=settings.get_listen_ip(),
-            port=settings.get_listen_port(),
+            port=settings.get_listen_port(), fast=True,
             reloader=True)

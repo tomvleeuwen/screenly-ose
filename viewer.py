@@ -10,6 +10,7 @@ from os import path, getenv, utime
 from platform import machine
 from random import shuffle
 from requests import get as req_get
+from requests import head as req_head
 from time import sleep, time
 from json import load as json_load
 from signal import signal, SIGUSR1, SIGUSR2
@@ -35,7 +36,8 @@ INTRO = '/screenly/intro-template.html'
 current_browser_url = None
 browser = None
 
-VIDEO_TIMEOUT=20  # secs
+VIDEO_TIMEOUT = 20  # secs
+
 
 def sigusr1(signum, frame):
     """
@@ -182,7 +184,7 @@ def view_image(uri):
 def view_video(uri, duration):
     logging.debug('Displaying video %s for %s ', uri, duration)
 
-    if arch == 'armv6l':
+    if arch in ['armv6l', 'armv7l']:
         player_args = ['omxplayer', uri]
         player_kwargs = {'o': settings['audio_output'], '_bg': True, '_ok_code': [0, 124]}
         player_kwargs['_ok_code'] = [0, 124]
@@ -199,8 +201,8 @@ def view_video(uri, duration):
     while run.process.alive:
         watchdog()
         sleep(1)
-    if run.exit_code == 124:
-        logging.error('omxplayer timed out')
+    if not run.exit_code == 0:
+        logging.error('omxplayer exited with exit code %i.' % run.exit_code)
 
 
 def check_update():
@@ -234,7 +236,7 @@ def check_update():
                     f.write(latest_sha.content.strip())
                 return True
             else:
-                logging.debug('Received on 200-status')
+                logging.debug('Received non 200-status')
                 return
         else:
             logging.debug('Unable to retreive latest SHA')
@@ -255,7 +257,7 @@ def pro_init():
 
     if is_pro_init:
         logging.debug('Detected Pro initiation cycle.')
-        load_browser(url=HOME+INTRO)
+        load_browser(url=HOME + INTRO)
     else:
         return False
 
@@ -264,8 +266,7 @@ def pro_init():
         with open(status_path, 'rb') as status_file:
             status = json_load(status_file)
 
-        browser_send('js showIpMac("%s", "%s")' %
-            (status.get('ip', ''), status.get('mac', '')) )
+        browser_send('js showIpMac("%s", "%s")' % (status.get('ip', ''), status.get('mac', '')))
 
         if status.get('neterror', False):
             browser_send('js showNetError()')
@@ -328,16 +329,32 @@ def setup():
     html_templates.black_page(BLACK_PAGE)
 
 
+def wait_for_splash_page(url):
+    max_retries = 20
+    retries = 0
+    while retries < max_retries:
+        fetch_head = req_head(url)
+        if fetch_head.status_code == 200:
+            break
+        else:
+            sleep(1)
+            retries += 1
+            logging.debug('Waiting for splash-page. Retry %d') % retries
+
+
 def main():
     setup()
     if pro_init():
         return
 
-    url = 'http://{0}:{1}/splash_page'.format(settings.get_listen_ip(), settings.get_listen_port()) if settings['show_splash'] else 'file://' + BLACK_PAGE
-    load_browser(url=url)
-
     if settings['show_splash']:
+        url = 'http://{0}:{1}/splash_page'.format(settings.get_listen_ip(), settings.get_listen_port())
+        wait_for_splash_page(url)
+        load_browser(url=url)
         sleep(SPLASH_DELAY)
+    else:
+        url = 'file://' + BLACK_PAGE
+        load_browser(url=url)
 
     scheduler = Scheduler()
     logging.debug('Entering infinite loop.')
