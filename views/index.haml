@@ -13,6 +13,9 @@
 
     :javascript
       var default_duration = ${default_duration};
+      var remote_host = ${remote_host};
+      var remote_port = ${remote_port};
+      var remote_enabled = ${'true' if remote_enabled else 'false'};
       var use_24_hour_clock = ${'true' if use_24_hour_clock else 'false'};
 
     %script(src="/static/js/underscore-1.4.3.min.js")
@@ -165,6 +168,27 @@
               .bar
             %input.btn.cancel(type="button", value="Cancel")
             %input.btn.btn-primary(type="submit", value="Save")
+
+    %script(type="text/template", id="link-modal-template")
+      .modal.hide.fade(tabindex="-1", role="dialog", ariaLabelledby="myModalLabel", ariaHidden="true")
+        %form.form-horizontal#add-form
+          .modal-header
+            %h3#modalLabel Link to other PI
+          .modal-body
+            %fieldset
+              .control-group.host
+                %label.control-label Fetch assets from
+                .controls
+                  %input.span3(type="text", name="host", placeholder="IP or hostname") &nbsp;Port&nbsp;
+                  %input.span1(type="number", name="port")
+            
+            
+          .modal-footer
+            .pull-left.progress.progress-striped.active(style="display:none")
+              .bar
+            %input.btn.cancel(type="button", value="Cancel")
+            %input.btn.btn-primary(type="submit", value="Save")
+
 
 
   %body

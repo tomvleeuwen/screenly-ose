@@ -82,6 +82,22 @@ API.Asset = class Asset extends Backbone.Model
       @set @backup_attributes
       @backup_attributes = undefined
 
+API.LinkedPi = class LinkedPi extends  Backbone.Model
+  idAttribute: "pi_id"
+  fields: 'host port enabled'.split ' '
+  defaults: =>
+    host: remote_host
+    port: remote_port
+    enabled: remote_enabled
+
+  backup: =>
+    @backup_attributes = @toJSON()
+
+  rollback: =>
+    if @backup_attributes
+      @set @backup_attributes
+      @backup_attributes = undefined
+
 
 API.Assets = class Assets extends Backbone.Collection
   url: "/api/assets"
@@ -283,6 +299,93 @@ API.View.EditAssetView = class EditAssetView extends Backbone.View
     (@$ '.advanced-accordion').toggle has_nocache is on
 
 
+#---------------
+API.View.EditLinkedMaster = class EditLinkedMaster extends Backbone.View
+  $f: (field) => @$ "[name='#{field}']" # get field element
+  $fv: (field, val...) => (@$f field).val val... # get or set filed value
+
+  initialize: (options) =>
+    @edit = options.edit
+    ($ 'body').append @$el.html get_template 'link-modal'
+
+
+    (@$ '.modal-header .close').remove()
+    (@$el.children ":first").modal()
+
+    @model.backup()
+
+    @model.bind 'change', @render
+
+    @render()
+    @validate()
+    _.delay (=> (@$f 'uri').focus()), 300
+    no
+
+  render: () =>
+    @undelegateEvents()    
+    for field in @model.fields
+      if (@$fv field) != @model.get field
+        @$fv field, @model.get field
+
+    @delegateEvents()
+    no
+
+  viewmodel: =>
+    for field in @model.fields when not (@$f field).prop 'disabled'
+      @model.set field, (@$fv field), silent:yes
+
+  events:
+    'submit form': 'save'
+    'click .cancel': 'cancel'
+    'change': 'change'
+    'keyup': 'change'
+
+  save: (e) =>
+    e.preventDefault()
+    @viewmodel()
+    save = null
+    
+    (@$ 'input, select').prop 'disabled', on
+    $.post '/api/setremote', {host:@model.get('host'), port:@model.get('port'), enabled:1 }
+    (@$el.children ":first").modal 'hide'
+
+  change: (e) =>
+    @_change  ||= _.throttle (=>
+      @viewmodel()
+      @model.trigger 'change'
+      @validate()
+      yes), 500
+    @_change arguments...
+
+  validate: (e) =>
+    that = this
+    validators =
+      host: (v) =>
+        if ( v == "" )
+           'please enter a valid hostname'
+      port: (v) =>
+        if ( v <= 0 or v>65536)
+           'please enter a valid port number (1..65536)'
+    errors = ([field, v] for field, fn of validators when v = fn (@$fv field))
+
+    (@$ ".control-group.warning .help-inline.warning").remove()
+    (@$ ".control-group").removeClass 'warning'
+    (@$ '[type=submit]').prop 'disabled', no
+    for [field, v] in errors
+      (@$ '[type=submit]').prop 'disabled', yes
+      (@$ ".control-group.host").addClass 'warning'
+      (@$ ".control-group.host .controls").append \
+        $ ("<span class='help-inline warning'>#{v}</span>")
+     
+
+  cancel: (e) =>
+    @model.rollback()
+    unless @edit then @model.destroy()
+    (@$el.children ":first").modal 'hide'
+
+
+#...............
+
 API.View.AssetRowView = class AssetRowView extends Backbone.View
   tagName: "tr"
 
@@ -402,10 +505,19 @@ API.App = class App extends Backbone.View
       el: @$ '#assets'
 
 
-  events: {'click #add-asset-button': 'add'}
+  events: 
+    'click #add-asset-button': 'add'
+    'click #link-master-button': 'link'
+
 
   add: (e) =>
     new EditAssetView model:
       new Asset {}, {collection: API.assets}
+    no
+
+
+  link: (e) =>
+    new EditLinkedMaster model:
+      new LinkedPi {}
     no
 

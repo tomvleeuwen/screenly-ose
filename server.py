@@ -106,6 +106,11 @@ def template(template_name, **context):
     context['up_to_date'] = is_up_to_date()
     context['default_duration'] = settings['default_duration']
     context['use_24_hour_clock'] = settings['use_24_hour_clock']
+    context['remote_host'] = '"'+settings['remote_host']+'"'
+    context['remote_port'] = settings['remote_port']
+    context['remote_enabled'] = settings['remote_enabled']
+
+ 
 
     return haml_template(template_name, **context)
 
@@ -269,6 +274,20 @@ def playlist_order():
     "Receive a list of asset_ids in the order they should be in the playlist"
     for play_order, asset_id in enumerate(request.POST.get('ids', '').split(',')):
         assets_helper.update(db_conn, asset_id, {'asset_id': asset_id, 'play_order': play_order})
+
+@route('/api/setremote', method="Post")
+@api
+def set_remote():
+    host = request.POST.get('host', settings['remote_host'])
+    port = request.POST.get('port', settings['remote_port'])
+    enabled = request.POST.get('enabled', settings['remote_enabled'])
+    print("Master is "+str(host)+":"+str(port)+". Enabled: "+str(enabled))
+    settings['remote_host']=host
+    settings['remote_port']=port
+    settings['remote_enabled']=enabled
+    settings.save()
+
+
 
 
 ################################
