@@ -3,7 +3,7 @@
 /* screenly-ose ui */
 
 (function() {
-  var API, App, Asset, AssetRowView, Assets, AssetsView, EditAssetView, EditLinkedMaster, LinkedPi, LinkedPiInstance, date_settings, date_settings_12hour, date_settings_24hour, date_to, delay, get_filename, get_mimetype, get_template, insertWbr, mimetypes, now, url_test, viduris,
+  var API, App, Asset, AssetRowView, Assets, AssetsView, EditAssetView, EditLinkedMaster, LinkedPi, LinkedPiGUIAdapt, LinkedPiInstance, date_settings, date_settings_12hour, date_settings_24hour, date_to, delay, get_filename, get_mimetype, get_template, insertWbr, mimetypes, now, url_test, viduris,
     indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; },
     bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
@@ -192,7 +192,7 @@
 
   LinkedPiInstance = new LinkedPi({});
 
-  $(function() {
+  LinkedPiGUIAdapt = function() {
     if (LinkedPiInstance.get('enabled')) {
       ($('#linkbutton')).html('Unlink');
       ($('#linktext')).css('display', 'inline');
@@ -203,6 +203,10 @@
       ($('#linktext')).css('display', 'none');
       return ($('#add-asset-button')).css('display', 'inline-block');
     }
+  };
+
+  $(function() {
+    return LinkedPiGUIAdapt();
   });
 
   API.Assets = Assets = (function(superClass) {
@@ -675,10 +679,7 @@
         enabled: 1
       });
       (this.$el.children(":first")).modal('hide');
-      ($('#linktext')).html('Linked to ' + this.model.get('host'));
-      ($('#linktext')).css('display', 'inline');
-      ($('#add-asset-button')).css('display', 'none');
-      return ($('#linkbutton')).html('Unlink');
+      return LinkedPiGUIAdapt();
     };
 
     EditLinkedMaster.prototype.change = function(e) {
@@ -1000,15 +1001,13 @@
 
     App.prototype.link = function(e) {
       if (LinkedPiInstance.get('enabled')) {
-        ($('#linkbutton')).html('Link to Master');
-        ($('#linktext')).css('display', 'none');
-        ($('#add-asset-button')).css('display', 'inline-block');
         LinkedPiInstance.set('enabled', false);
         $.post('/api/setremote', {
           host: LinkedPiInstance.get('host'),
           port: LinkedPiInstance.get('port'),
           enabled: 0
         });
+        LinkedPiGUIAdapt();
       } else {
         new EditLinkedMaster({
           model: LinkedPiInstance

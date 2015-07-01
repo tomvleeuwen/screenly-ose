@@ -101,8 +101,8 @@ API.LinkedPi = class LinkedPi extends  Backbone.Model
 
 #LinkedPi Model instance (only need one)
 LinkedPiInstance = new LinkedPi {}
-#Prepare GUI
-$ ->
+       
+LinkedPiGUIAdapt = () ->
    if LinkedPiInstance.get('enabled')
       ($ '#linkbutton').html 'Unlink'
       ($ '#linktext').css('display','inline')
@@ -112,9 +112,11 @@ $ ->
       ($ '#linkbutton').html 'Link to Master'
       ($ '#linktext').css('display','none')
       ($ '#add-asset-button').css('display','inline-block')
-       
 
 
+#Prepare GUI
+$ ->
+   LinkedPiGUIAdapt()
 
 API.Assets = class Assets extends Backbone.Collection
   url: "/api/assets"
@@ -367,11 +369,8 @@ API.View.EditLinkedMaster = class EditLinkedMaster extends Backbone.View
     $.post '/api/setremote', {host:@model.get('host'), port:@model.get('port'), enabled:1 }
     (@$el.children ":first").modal 'hide'
 
-    ($ '#linktext').html 'Linked to '+ @model.get('host')
-    ($ '#linktext').css('display','inline')
-    ($ '#add-asset-button').css('display','none')
-    ($ '#linkbutton').html 'Unlink'
-
+    LinkedPiGUIAdapt()
+    
   change: (e) =>
     @_change  ||= _.throttle (=>
       @viewmodel()
@@ -541,11 +540,9 @@ API.App = class App extends Backbone.View
 
   link: (e) =>
     if LinkedPiInstance.get('enabled')
-       ($ '#linkbutton').html 'Link to Master'
-       ($ '#linktext').css('display','none')
-       ($ '#add-asset-button').css('display','inline-block')
        LinkedPiInstance.set 'enabled', false
        $.post '/api/setremote', {host:LinkedPiInstance.get('host'), port:LinkedPiInstance.get('port'), enabled:0 }
+       LinkedPiGUIAdapt()
     else
        new EditLinkedMaster model: LinkedPiInstance
     no
