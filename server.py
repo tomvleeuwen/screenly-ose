@@ -281,10 +281,12 @@ def set_remote():
     host = request.POST.get('host', settings['remote_host'])
     port = request.POST.get('port', settings['remote_port'])
     enabled = request.POST.get('enabled', settings['remote_enabled'])
-    print("Master is "+str(host)+":"+str(port)+". Enabled: "+str(enabled))
     settings['remote_host']=host
     settings['remote_port']=port
-    settings['remote_enabled']=enabled
+    if enabled == '1':
+    	settings['remote_enabled']=True
+    else:
+        settings['remote_enabled']=False
     settings.save()
 
 

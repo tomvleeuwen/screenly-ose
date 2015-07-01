@@ -3,7 +3,7 @@
 /* screenly-ose ui */
 
 (function() {
-  var API, App, Asset, AssetRowView, Assets, AssetsView, EditAssetView, EditLinkedMaster, LinkedPi, date_settings, date_settings_12hour, date_settings_24hour, date_to, delay, get_filename, get_mimetype, get_template, insertWbr, mimetypes, now, url_test, viduris,
+  var API, App, Asset, AssetRowView, Assets, AssetsView, EditAssetView, EditLinkedMaster, LinkedPi, LinkedPiInstance, date_settings, date_settings_12hour, date_settings_24hour, date_to, delay, get_filename, get_mimetype, get_template, insertWbr, mimetypes, now, url_test, viduris,
     indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; },
     bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
@@ -189,6 +189,21 @@
     return LinkedPi;
 
   })(Backbone.Model);
+
+  LinkedPiInstance = new LinkedPi({});
+
+  $(function() {
+    if (LinkedPiInstance.get('enabled')) {
+      ($('#linkbutton')).html('Unlink');
+      ($('#linktext')).css('display', 'inline');
+      ($('#linktext')).html('Linked to ' + LinkedPiInstance.get('host'));
+      return ($('#add-asset-button')).css('display', 'none');
+    } else {
+      ($('#linkbutton')).html('Link to Master');
+      ($('#linktext')).css('display', 'none');
+      return ($('#add-asset-button')).css('display', 'inline-block');
+    }
+  });
 
   API.Assets = Assets = (function(superClass) {
     extend(Assets, superClass);
@@ -649,6 +664,9 @@
       var save;
       e.preventDefault();
       this.viewmodel();
+      this.model.set('enabled', true, {
+        silent: true
+      });
       save = null;
       (this.$('input, select')).prop('disabled', true);
       $.post('/api/setremote', {
@@ -656,7 +674,11 @@
         port: this.model.get('port'),
         enabled: 1
       });
-      return (this.$el.children(":first")).modal('hide');
+      (this.$el.children(":first")).modal('hide');
+      ($('#linktext')).html('Linked to ' + this.model.get('host'));
+      ($('#linktext')).css('display', 'inline');
+      ($('#add-asset-button')).css('display', 'none');
+      return ($('#linkbutton')).html('Unlink');
     };
 
     EditLinkedMaster.prototype.change = function(e) {
@@ -977,9 +999,21 @@
     };
 
     App.prototype.link = function(e) {
-      new EditLinkedMaster({
-        model: new LinkedPi({})
-      });
+      if (LinkedPiInstance.get('enabled')) {
+        ($('#linkbutton')).html('Link to Master');
+        ($('#linktext')).css('display', 'none');
+        ($('#add-asset-button')).css('display', 'inline-block');
+        LinkedPiInstance.set('enabled', false);
+        $.post('/api/setremote', {
+          host: LinkedPiInstance.get('host'),
+          port: LinkedPiInstance.get('port'),
+          enabled: 0
+        });
+      } else {
+        new EditLinkedMaster({
+          model: LinkedPiInstance
+        });
+      }
       return false;
     };
 
