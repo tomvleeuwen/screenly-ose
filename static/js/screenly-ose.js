@@ -196,7 +196,7 @@
     if (LinkedPiInstance.get('enabled')) {
       ($('#linkbutton')).html('Unlink');
       ($('#linktext')).css('display', 'inline');
-      ($('#linktext')).html('Linked to ' + LinkedPiInstance.get('host'));
+      ($('#linktext')).html('Linked to <a href="http://' + LinkedPiInstance.get('host') + ':' + LinkedPiInstance.get('port') + '">' + LinkedPiInstance.get('host') + '</a>');
       ($('#add-asset-button')).css('display', 'none');
       ($('.inactive-table')).css('display', 'none');
       return ($('.active-table')).css('display', 'none');
