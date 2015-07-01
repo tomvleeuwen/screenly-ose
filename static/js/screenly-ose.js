@@ -197,11 +197,15 @@
       ($('#linkbutton')).html('Unlink');
       ($('#linktext')).css('display', 'inline');
       ($('#linktext')).html('Linked to ' + LinkedPiInstance.get('host'));
-      return ($('#add-asset-button')).css('display', 'none');
+      ($('#add-asset-button')).css('display', 'none');
+      ($('.inactive-table')).css('display', 'none');
+      return ($('.active-table')).css('display', 'none');
     } else {
       ($('#linkbutton')).html('Link to Master');
       ($('#linktext')).css('display', 'none');
-      return ($('#add-asset-button')).css('display', 'inline-block');
+      ($('#add-asset-button')).css('display', 'inline-block');
+      ($('.inactive-table')).css('display', '');
+      return ($('.active-table')).css('display', '');
     }
   };
 
