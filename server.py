@@ -128,8 +128,12 @@ def prepare_asset(request):
 
     data = request.POST or request.FORM or {}
 
+    print("POST******" +str(data))
+    print("POST******" +str(data['model']))
+
     if 'model' in data:
         data = json.loads(data['model'])
+        print("JSON parsed "+str(data))
 
     def get(key):
         val = data.get(key, '')

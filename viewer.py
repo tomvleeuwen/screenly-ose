@@ -11,8 +11,11 @@ from platform import machine
 from random import shuffle
 from requests import get as req_get
 from requests import head as req_head
+from requests import post as req_post
 from time import sleep, time
 from json import load as json_load
+from json import loads as json_loads
+from json import dumps as json_dumps
 from signal import signal, SIGUSR1, SIGUSR2
 import logging
 import sh
@@ -54,6 +57,66 @@ def sigusr2(signum, frame):
     load_settings()
 
 
+def json_to_asset(jasset):
+
+    def get(key):
+        val = jasset.get(key, '')
+        return val.strip() if isinstance(val, basestring) else val
+
+    if all([get('name'),
+            get('uri'),
+            get('mimetype')]):
+
+        asset = {
+            'name': get('name').decode('UTF-8'),
+            'mimetype': get('mimetype'),
+            'asset_id': get('asset_id'),
+            'is_enabled': get('is_enabled'),
+            'nocache': get('nocache'),
+        }
+
+        uri = get('uri') or False
+
+        if not asset['asset_id']:
+            asset['asset_id'] = uuid.uuid4().hex
+
+
+        if uri.startswith('/'):
+		raise Exception('Uploaded data not yet supported')
+        
+        asset['uri'] = uri
+        
+    
+        if "video" in asset['mimetype'] and get('duration')=="0":
+            video_duration = get_video_duration(asset['uri'])
+            if video_duration:
+                asset['duration'] = int(video_duration.total_seconds())
+            else:
+                asset['duration'] = 'N/A'
+        else:
+            # Crashes if it's not an int. We want that.
+            asset['duration'] = int(get('duration'))
+
+        if get('start_date'):
+            asset['start_date'] = datetime.strptime(get('start_date').split(".")[0], "%Y-%m-%dT%H:%M:%S")
+        else:
+            asset['start_date'] = ""
+
+        if get('end_date'):
+            asset['end_date'] = datetime.strptime(get('end_date').split(".")[0], "%Y-%m-%dT%H:%M:%S")
+        else:
+            asset['end_date'] = ""
+
+        if not asset['asset_id']:
+            raise Exception
+
+        if not asset['uri']:
+            raise Exception
+
+        return asset
+    else:
+        raise Exception("Not enough information provided. Please specify 'name', 'uri', and 'mimetype'.")
+
 class Scheduler(object):
     def __init__(self, *args, **kwargs):
         logging.debug('Scheduler init')
@@ -74,6 +137,7 @@ class Scheduler(object):
 
     def refresh_playlist(self):
         logging.debug('refresh_playlist')
+	load_settings()
         time_cur = datetime.utcnow()
         logging.debug('refresh: counter: (%s) deadline (%s) timecur (%s)', self.counter, self.deadline, time_cur)
         if self.get_db_mtime() > self.last_update_db_mtime:
@@ -83,10 +147,15 @@ class Scheduler(object):
             self.update_playlist()
         elif self.deadline and self.deadline <= time_cur:
             self.update_playlist()
+	elif settings['remote_enabled'] and self.index == 0:
+	    self.update_playlist()
 
     def update_playlist(self):
         logging.debug('update_playlist')
-        self.last_update_db_mtime = self.get_db_mtime()
+
+        if settings['remote_enabled']:
+	    fetch_master_assets()
+	self.last_update_db_mtime = self.get_db_mtime()
         (self.assets, self.deadline) = generate_asset_list()
         self.nassets = len(self.assets)
         self.counter = 0
@@ -100,6 +169,26 @@ class Scheduler(object):
         except:
             return 0
 
+def fetch_master_assets():
+	logging.debug('trying to fetch assets from Master '+settings['remote_host']+":"+settings['remote_port'])
+        try:
+        	r=req_get('http://'+settings['remote_host']+":"+settings['remote_port']+'/api/assets', timeout=10)
+        except:
+                logging.warn('Network error getting remote assets')
+        else:
+                if r.status_code != 200:
+                    logging.warn('Unable to get remote assets '+str(r.status_code))
+                else:
+                    logging.debug('Got '+str(r.text))
+                    data=json_loads(r.text)
+  		    assets_helper.clear_table(db_conn)
+                    for asset in data:
+                        try:
+				a=json_to_asset(asset)
+                    		assets_helper.create(db_conn, a)
+				logging.info('Added remote asset '+str(a['uri']))
+			except Exception,e:
+				logging.warn('Can not add remote asset: '+str(e))
 
 def generate_asset_list():
     logging.info('Generating asset-list...')

@@ -97,3 +97,8 @@ def delete(conn, asset_id):
     """Remove an asset from the database."""
     with db.commit(conn) as c:
         c.execute(queries.remove, [asset_id])
+
+def clear_table(conn):
+    with db.commit(conn) as c:
+        c.execute(queries.clear_table)
+
