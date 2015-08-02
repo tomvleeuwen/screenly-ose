@@ -3,80 +3,86 @@
 <link type="text/css"  href="./static/tables.css" rel="stylesheet" />
 <script type="text/javascript" language="javascript" src="./static/jquery.js"></script>
 <script type="text/javascript" language="javascript" src="./static/jquery.dataTables.min.js"></script>
-	
+    
 <script type="text/javascript" charset="utf-8">
+    
 J = jQuery;
-
-	
+    
 
 J(document).ready(function() {
-			J('#pods').dataTable( {
-					"aaData": [],
-					"aoColumns": [
-						{ "sTitle": "UUID" },
-						{ "sTitle": "Label"},
-						{ "sTitle": "Destination" },
-						{ "sTitle": "Last Seen" },
-						{
-						"sTitle": "Actions",
-						"mData": null,
-						"sClass": "center",
-						"sDefaultContent": '<a href="#" id="delete">Delete</a> '
-						}						
-					],
-                    "aoColumnDefs": [ {
-                       "aTargets": [ 2 ],
-                       "mData": "2",
-                       "mRender": function ( data, type, full ) {
-                           return '<a href="http://'+data+'" target="_new">'+data+'</a>';
-                         }
-                    },
-			{
-                       "aTargets": [ 1 ],
-                       "mData": "1",
-                       "mRender": function ( data, type, full ) {
-                           return '<a href="#" id="chLabel">'+data+'</a>';
-                         }
-                    }
-			]
-
-				} ); 
-			
-
-
-			J.getJSON('dbcontents',
-			function(data){
-				J('#pods').dataTable().fnClearTable();         
-				J('#pods').dataTable().fnAddData(data);         
-          });
-	  
-	
-  J("#pods tbody").on("click","#chLabel",function(event){
-	var label=prompt("Enter new label",event.currentTarget.firstChild.data);
-	var uuid=event.currentTarget.parentElement.parentElement.children[0].firstChild.data
-	if (label!=null && label!="") {
-		//alert("New label " + label);
-		J.post("setlabel", { l: label, u: uuid } ).done(function(data) {
-			window.location.replace("./");
-		});;
-	}
-	
-	return false; 
-	});
-	
-	J("#pods tbody").on("click","#delete",function(event){
-	var uuid=event.currentTarget.parentElement.parentElement.children[0].firstChild.data
-	var res=confirm("Really delete "+uuid+"?");
-	if (res == true) {
-		J.post("delete", {  u: uuid } ).done(function(data) {
-			window.location.replace("./");
-		});;
-	}
-	
-	return false; 
-	});
+    J('#pods').dataTable( {
+            "lengthMenu": [[-1,25,50],["All","25","50"]],
+            "aaData": [],
+            "aoColumns": [
+                { "sTitle": "UUID", "width": "10%" },
+                { "sTitle": "Label", "width": "25%" },
+                { "sTitle": "Assets", "width": "35%" },
+                { "sTitle": "Destination", "width": "10%" },
+                { "sTitle": "Last Seen", "width": "10%" },
+                {
+                "sTitle": "Actions",
+                "mData": null,
+                "sClass": "center",
+                "sDefaultContent": '<a href="#" id="rename">Rename</a> <a href="#" id="delete">Delete</a> ',
+                "width": "10%" }                       
+            ],
+            "aoColumnDefs": [ 
+                {
+                    "aTargets": [ 1 ],
+                    "mData": "1",
+                    "mRender": 
+                        function ( data, type, full ) {
+                            return '<a href="http://'+full[3]+'" target="_blank">'+data+'</a>';
+                        }
+                },
+                {
+                    "aTargets": [ 2 ],
+                    "mData": "2",
+                    "mRender": 
+                        function ( data, type, full ) {
+                            var str = "";
+                            for (var i in data) {
+                                str += '<a href="' + data[i]['uri'] +'" target="_blank">' + data[i]['name'] + "</a><br>"
+                            }
+                            return str;
+                        }
+                }
+            ]
+        } ); 
+    
 
 
+    J.getJSON('dbcontents',
+        function(data){
+            J('#pods').dataTable().fnClearTable();
+            J('#pods').dataTable().fnAddData(data);
+    });
+      
+  
+    J("#pods tbody").on("click","#rename",function(event){
+        var uuid=event.currentTarget.parentElement.parentElement.children[0].firstChild.data
+        var label=prompt("Enter new label",event.currentTarget.parentElement.parentElement.children[1].firstChild.firstChild.data);
+        if (label!=null && label!="") {
+            J.post("setlabel", { l: label, u: uuid } ).done(function(data) {
+                window.location.replace("./");
+            });;
+        }
+        
+        return false; 
+    });
+    
+    J("#pods tbody").on("click","#delete",function(event){
+        var uuid=event.currentTarget.parentElement.parentElement.children[0].firstChild.data
+        var res=confirm("Really delete "+uuid+"?");
+        if (res == true) {
+            J.post("delete", { u: uuid } ).done(function(data) {
+                window.location.replace("./");
+            });;
+        }
+        
+        return false; 
+    });
+    
 
 } );
 </script>
