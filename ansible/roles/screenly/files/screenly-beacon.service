@@ -1,0 +1,17 @@
+[Unit]
+Description=Screenly Beacon Service
+After=screenly-web.service
+
+[Service]
+WorkingDirectory=/home/pi/screenly
+User=pi
+
+Environment=PYTHONPATH=/home/pi/screenly
+
+
+ExecStart=/usr/bin/python -u /home/pi/screenly/beacon.py  
+Restart=on-failure
+
+
+[Install]
+WantedBy=multi-user.target
