@@ -154,7 +154,7 @@ class Scheduler(object):
             self.update_playlist()
         elif self.deadline and self.deadline <= time_cur:
             self.update_playlist()
-	    elif settings['remote_enabled'] and self.index == 0:
+        elif settings['remote_enabled'] and self.index == 0:
 	        self.update_playlist()
 
     def update_playlist(self):
