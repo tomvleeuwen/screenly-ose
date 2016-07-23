@@ -12,7 +12,7 @@ from functools import wraps
 from hurry.filesize import size
 from os import path, makedirs, statvfs, mkdir, getenv
 from sh import git
-from subprocess import check_output
+from subprocess import check_output, call
 from uptime import uptime
 import json
 import os
