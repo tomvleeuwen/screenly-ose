@@ -146,6 +146,7 @@ class Scheduler(object):
     def refresh_playlist(self):
         logging.debug('refresh_playlist')
         time_cur = datetime.utcnow()
+        load_settings()
         logging.debug('refresh: counter: (%s) deadline (%s) timecur (%s)', self.counter, self.deadline, time_cur)
         if self.get_db_mtime() > self.last_update_db_mtime:
             logging.debug('updating playlist due to database modification')
