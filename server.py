@@ -334,6 +334,7 @@ def login_form():
 
 @route('/')
 def viewIndex():
+    aaa.require(role='admin', fail_redirect='/sorry_page')
     return template('index')
 
 
