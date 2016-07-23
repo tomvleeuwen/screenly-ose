@@ -102,12 +102,12 @@ def json_to_asset(jasset):
             asset['duration'] = int(get('duration'))
 
         if get('start_date'):
-            asset['start_date'] = datetime.strptime(get('start_date').split(".")[0], "%Y-%m-%dT%H:%M:%S")
+            asset['start_date'] = datetime.strptime(get('start_date').split(".")[0], "%Y-%m-%dT%H:%M:%S+00:00")
         else:
             asset['start_date'] = ""
 
         if get('end_date'):
-            asset['end_date'] = datetime.strptime(get('end_date').split(".")[0], "%Y-%m-%dT%H:%M:%S")
+            asset['end_date'] = datetime.strptime(get('end_date').split(".")[0], "%Y-%m-%dT%H:%M:%S+00:00")
         else:
             asset['end_date'] = ""
 
