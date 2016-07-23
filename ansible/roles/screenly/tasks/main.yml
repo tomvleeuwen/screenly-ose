@@ -42,6 +42,10 @@
     dest: /home/pi/.screenly/screenly.db
     force: no
 
+- name: Create auth information
+  become: no
+  command: python /home/pi/screenly/bin/createAuth.py
+ 
 - name: Run database migration
   become: no
   command: python /home/pi/screenly/bin/migrate.py
