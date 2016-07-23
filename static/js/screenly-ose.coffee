@@ -10,17 +10,18 @@ date_settings_12hour =
   date_picker_format: 'mm/dd/yyyy'
 
 date_settings_24hour =
-  full_date: 'YYYY/MM/DD HH:mm:ss',
-  date: 'YYYY/MM/DD',
+  full_date: 'MM/DD/YYYY HH:mm:ss',
+  date: 'MM/DD/YYYY',
   time: 'HH:mm',
   show_meridian: false,
-  datepicker_format: 'yyyy/mm/dd'
+  datepicker_format: 'mm/dd/yyyy'
 
 date_settings = if use_24_hour_clock then date_settings_24hour else date_settings_12hour
 
 
 API.date_to = date_to = (d) ->
-  dd = moment (new Date d)
+  # Cross-browser UTC to localtime conversion
+  dd = moment.utc(d).local()
   string: -> dd.format date_settings.full_date
   date: -> dd.format date_settings.date
   time: -> dd.format date_settings.time
@@ -81,6 +82,9 @@ API.Asset = class Asset extends Backbone.Model
     if @backup_attributes
       @set @backup_attributes
       @backup_attributes = undefined
+  old_name: =>
+    if @backup_attributes
+      return @backup_attributes.name
 
 API.LinkedPi = class LinkedPi extends  Backbone.Model
   idAttribute: "pi_id"
@@ -97,7 +101,6 @@ API.LinkedPi = class LinkedPi extends  Backbone.Model
     if @backup_attributes
       @set @backup_attributes
       @backup_attributes = undefined
-
 
 #LinkedPi Model instance (only need one)
 LinkedPiInstance = new LinkedPi {}
@@ -214,7 +217,9 @@ API.View.EditAssetView = class EditAssetView extends Backbone.View
       save = @$el.fileupload 'send', fileInput: (@$f 'file_upload')
     else
       if not @model.get 'name'
-        if get_mimetype @model.get 'uri'
+        if @model.old_name()
+          @model.set {name: @model.old_name()}, silent:yes
+        else if get_mimetype @model.get 'uri'
           @model.set {name: get_filename @model.get 'uri'}, silent:yes
         else
           @model.set {name: @model.get 'uri'}, silent:yes
@@ -494,12 +499,16 @@ API.View.AssetsView = class AssetsView extends Backbone.View
       update: @update_order
 
   update_order: =>
-    @collection.get(id).set('play_order', i) for id, i in (@$ '#active-assets').sortable 'toArray'
-    @collection.sort()
+    active = (@$ '#active-assets').sortable 'toArray'
+    
+    @collection.get(id).set('play_order', i) for id, i in active
+    @collection.get(el.id).set('play_order', active.length) for el in (@$ '#inactive-assets tr').toArray()
 
     $.post '/api/assets/order', ids: ((@$ '#active-assets').sortable 'toArray').join ','
 
   render: =>
+    @collection.sort()
+    
     (@$ "##{which}-assets").html '' for which in ['active', 'inactive']
 
     @collection.each (model) =>
@@ -508,11 +517,9 @@ API.View.AssetsView = class AssetsView extends Backbone.View
 
     for which in ['inactive', 'active']
       @$(".#{which}-table thead").toggle !!(@$("##{which}-assets tr").length)
-    if @$('#active-assets tr').length > 1
-      @sorted.sortable 'enable'
-      @update_order()
-    else
-      @sorted.sortable 'disable'
+      
+    @update_order()
+   
     @el
 
 
@@ -539,15 +546,5 @@ API.App = class App extends Backbone.View
   add: (e) =>
     new EditAssetView model:
       new Asset {}, {collection: API.assets}
-    no
-
-
-  link: (e) =>
-    if LinkedPiInstance.get('enabled')
-       LinkedPiInstance.set 'enabled', false
-       $.post '/api/setremote', {host:LinkedPiInstance.get('host'), port:LinkedPiInstance.get('port'), enabled:0 }
-       LinkedPiGUIAdapt()
-    else
-       new EditLinkedMaster model: LinkedPiInstance
     no
 

@@ -1,8 +1,8 @@
-FROM debian:wheezy
+FROM debian:jessie
 MAINTAINER Viktor Petersson <vpetersson@wireload.net>
 
 RUN apt-get update && \
-    apt-get -y install git-core net-tools python-pip python-netifaces python-simplejson python-imaging python-dev sqlite3 && \
+    apt-get -y install git-core net-tools python-pip python-netifaces python-simplejson python-imaging python-dev sqlite3 libffi-dev libssl-dev && \
     apt-get clean
 
 # Install Python requirements
@@ -14,7 +14,7 @@ RUN useradd pi
 
 # Install config file and file structure
 RUN mkdir -p /home/pi/.screenly /home/pi/screenly /home/pi/screenly_assets
-COPY misc/screenly.conf /home/pi/.screenly/screenly.conf
+COPY ansible/roles/screenly/files/screenly.conf /home/pi/.screenly/screenly.conf
 RUN chown -R pi:pi /home/pi
 
 # Copy in code base
@@ -24,6 +24,5 @@ USER pi
 WORKDIR /home/pi/screenly
 
 EXPOSE 8080
-VOLUME /home/pi/screenly
 
 CMD python server.py

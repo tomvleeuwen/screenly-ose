@@ -1,11 +1,21 @@
 language: python
 python:
   - "2.7"
-  # does not have headers provided, please ask https://launchpad.net/~pypy/+archive/ppa
-  # maintainers to fix their pypy-dev package.
-  - "pypy"
-# command to install dependencies
+addons:
+  apt:
+    packages:
+      - net-tools
 install:
-  - pip install -r requirements.txt --use-mirrors
-# command to run tests
-script: nosetests
+  - pip install -U pip
+  - pip install -r requirements.txt
+  - pip install -r requirements.dev.txt
+before_script:
+  - mkdir -p ~/.screenly ~/.config/uzbl/
+  - cp ansible/roles/screenly/files/uzbl-config ~/.config/uzbl/config-screenly
+  - cp ansible/roles/screenly/files/screenly.conf ~/.screenly/
+  - echo -e "[local]\nlocalhost ansible_connection=local" > ansible/localhost
+script:
+  - find . -name \*.py -exec pep8 --ignore=E402,E501,E731 {} +
+  - nosetests -v -a '!fixme' --with-isolation
+  - ansible-playbook --syntax-check -i ansible/localhost ansible/site.yml
+sudo: false

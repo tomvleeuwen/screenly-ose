@@ -14,6 +14,7 @@ DEFAULTS = {
         'database': CONFIG_DIR + 'screenly.db',
         'listen': '0.0.0.0:8080',
         'assetdir': 'screenly_assets',
+        'use_24_hour_clock': False
     },
     'viewer': {
         'show_splash': True,
@@ -22,21 +23,21 @@ DEFAULTS = {
         'resolution': '1920x1080',
         'default_duration': '10',
         'debug_logging': False,
- 	'use_24_hour_clock': False,
-	'verify_ssl': True,
-	'remote_enabled': False,
-	'remote_host': 'quinn.event.formulastudent.de',
-	'remote_port': '8080',
-    },
+        'verify_ssl': True,
+        'remote_enabled': False,
+	    'remote_host': 'quinn.event.formulastudent.de',
+	    'remote_port': '8080',
+    }
     'beacon': {
-      'mothership': 'mothership:8080',
+        'mothership': 'mothership:8080',
     }
 }
+CONFIGURABLE_SETTINGS = DEFAULTS['viewer']
+CONFIGURABLE_SETTINGS['use_24_hour_clock'] = DEFAULTS['main']['use_24_hour_clock']
 
 # Initiate logging
 logging.basicConfig(level=logging.INFO,
-                    filename='/tmp/screenly_viewer.log',
-                    format='%(asctime)s %(message)s',
+                    format='%(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S')
 
 # Silence urllib info messages ('Starting new HTTP connection')
@@ -48,10 +49,10 @@ logging.debug('Starting viewer.py')
 
 
 class ScreenlySettings(IterableUserDict):
-    "Screenly OSE's Settings."
+    """Screenly OSE's Settings."""
 
     def __init__(self, *args, **kwargs):
-        rv = IterableUserDict.__init__(self, *args, **kwargs)
+        IterableUserDict.__init__(self, *args, **kwargs)
         self.home = getenv('HOME')
         self.conf_file = self.get_configfile()
 
@@ -60,7 +61,6 @@ class ScreenlySettings(IterableUserDict):
             exit(1)
         else:
             self.load()
-        return rv
 
     def _get(self, config, section, field, default):
         try:
@@ -83,7 +83,7 @@ class ScreenlySettings(IterableUserDict):
             config.set(section, field, unicode(self.get(field, default)))
 
     def load(self):
-        "Loads the latest settings from screenly.conf into memory."
+        """Loads the latest settings from screenly.conf into memory."""
         logging.debug('Reading config-file...')
         config = ConfigParser.ConfigParser()
         config.read(self.conf_file)

@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf8 -*-
 
-__author__ = "Viktor Petersson"
-__copyright__ = "Copyright 2012, WireLoad Inc"
+__author__ = "WireLoad Inc"
+__copyright__ = "Copyright 2012-2016, WireLoad Inc"
 __license__ = "Dual License: GPLv2 and Commercial License"
 __version__ = "0.1.4"
 __email__ = "vpetersson@wireload.net"
@@ -10,18 +10,16 @@ __email__ = "vpetersson@wireload.net"
 from datetime import datetime, timedelta
 from functools import wraps
 from hurry.filesize import size
-from os import path, makedirs, getloadavg, statvfs, mkdir, getenv
-from re import split as re_split
+from os import path, makedirs, statvfs, mkdir, getenv
 from sh import git
-from subprocess import check_output, call
+from subprocess import check_output
 from uptime import uptime
-from urlparse import urlparse
 import json
 import os
 import traceback
 import uuid
 
-from bottle import route, run, request, error, static_file, response, redirect
+from bottle import route, run, request, error, static_file, response
 from bottle import HTTPResponse
 from bottlehaml import haml_template
 
@@ -29,18 +27,20 @@ from cork import Cork
 from bottle import default_app, view
 from beaker.middleware import SessionMiddleware
 
-import db
-import queries
-import assets_helper
+from lib import db
+from lib import queries
+from lib import assets_helper
+from lib import diagnostics
 
-from utils import json_dump
-from utils import get_node_ip
-from utils import validate_url
-from utils import url_fails
-from utils import get_video_duration
+from lib.utils import json_dump
+from lib.utils import get_node_ip
+from lib.utils import validate_url
+from lib.utils import url_fails
+from lib.utils import get_video_duration
+from dateutil import parser as date_parser
 
-from settings import settings, DEFAULTS
-get_current_time = datetime.utcnow
+from settings import settings, DEFAULTS, CONFIGURABLE_SETTINGS
+from werkzeug.wrappers import Request
 
 
 aaa = Cork('/home/pi/screenly.auth')
@@ -71,9 +71,10 @@ def is_up_to_date():
     #Disable update check in FSG edition
     return True
     
-    sha_file = path.join(settings.get_configdir(), 'latest_screenly_sha')
+    sha_file = os.path.join(settings.get_configdir(), 'latest_screenly_sha')
 
-    # Until this has been created by viewer.py, let's just assume we're up to date.
+    # Until this has been created by viewer.py,
+    # let's just assume we're up to date.
     if not os.path.exists(sha_file):
         return True
 
@@ -84,11 +85,8 @@ def is_up_to_date():
         latest_sha = None
 
     if latest_sha:
-        try:
-            check_sha = git('branch', '--contains', latest_sha)
-            return 'master' in check_sha
-        except:
-            return False
+        branch_sha = git('rev-parse', 'HEAD')
+        return branch_sha.stdout.strip() == latest_sha
 
     # If we weren't able to verify with remote side,
     # we'll set up_to_date to true in order to hide
@@ -106,11 +104,13 @@ def template(template_name, **context):
     context['up_to_date'] = is_up_to_date()
     context['default_duration'] = settings['default_duration']
     context['use_24_hour_clock'] = settings['use_24_hour_clock']
+    context['template_settings'] = {
+        'imports': ['from lib.utils import template_handle_unicode'],
+        'default_filters': ['template_handle_unicode'],
+    }
     context['remote_host'] = '"'+settings['remote_host']+'"'
     context['remote_port'] = settings['remote_port']
     context['remote_enabled'] = settings['remote_enabled']
-
- 
 
     return haml_template(template_name, **context)
 
@@ -126,10 +126,10 @@ def template(template_name, **context):
 
 def prepare_asset(request):
 
-    data = request.POST or request.FORM or {}
+    req = Request(request.environ)
+    data = None
 
-    if 'model' in data:
-        data = json.loads(data['model'])
+    data = json.loads(req.form['model']) if 'model' in req.form else req.form
 
     def get(key):
         val = data.get(key, '')
@@ -141,11 +141,11 @@ def prepare_asset(request):
             return val
 
     if all([get('name'),
-            get('uri') or (request.files.file_upload != ""),
+            get('uri') or req.files.get('file_upload'),
             get('mimetype')]):
 
         asset = {
-            'name': get('name').decode('UTF-8'),
+            'name': get('name'),
             'mimetype': get('mimetype'),
             'asset_id': get('asset_id'),
             'is_enabled': get('is_enabled'),
@@ -158,7 +158,7 @@ def prepare_asset(request):
             asset['asset_id'] = uuid.uuid4().hex
 
         try:
-            file_upload = request.files.file_upload
+            file_upload = req.files.get('file_upload')
             filename = file_upload.filename
         except AttributeError:
             file_upload = None
@@ -181,12 +181,7 @@ def prepare_asset(request):
         if filename:
             asset['uri'] = path.join(settings['assetdir'], asset['asset_id'])
 
-            with open(asset['uri'], 'w') as f:
-                while True:
-                    chunk = file_upload.file.read(1024)
-                    if not chunk:
-                        break
-                    f.write(chunk)
+            file_upload.save(asset['uri'])
 
         if "video" in asset['mimetype'] and get('duration')=="0":
             video_duration = get_video_duration(asset['uri'])
@@ -198,13 +193,14 @@ def prepare_asset(request):
             # Crashes if it's not an int. We want that.
             asset['duration'] = int(get('duration'))
 
+        # parse date via python-dateutil and remove timezone info
         if get('start_date'):
-            asset['start_date'] = datetime.strptime(get('start_date').split(".")[0], "%Y-%m-%dT%H:%M:%S")
+            asset['start_date'] = date_parser.parse(get('start_date')).replace(tzinfo=None)
         else:
             asset['start_date'] = ""
 
         if get('end_date'):
-            asset['end_date'] = datetime.strptime(get('end_date').split(".")[0], "%Y-%m-%dT%H:%M:%S")
+            asset['end_date'] = date_parser.parse(get('end_date')).replace(tzinfo=None)
         else:
             asset['end_date'] = ""
 
@@ -276,9 +272,7 @@ def remove_asset(asset_id):
 @route('/api/assets/order', method="POST")
 @api
 def playlist_order():
-    "Receive a list of asset_ids in the order they should be in the playlist"
-    for play_order, asset_id in enumerate(request.POST.get('ids', '').split(',')):
-        assets_helper.update(db_conn, asset_id, {'asset_id': asset_id, 'play_order': play_order})
+    assets_helper.save_ordering(db_conn, request.POST.get('ids', '').split(','))
 
 @route('/api/setremote', method="Post")
 @api
@@ -340,7 +334,6 @@ def login_form():
 
 @route('/')
 def viewIndex():
-    aaa.require(role='admin', fail_redirect='/sorry_page')
     return template('index')
 
 
@@ -350,7 +343,7 @@ def settings_page():
     context = {'flash': None}
 
     if request.method == "POST":
-        for field, default in DEFAULTS['viewer'].items():
+        for field, default in CONFIGURABLE_SETTINGS.items():
             value = request.POST.get(field, default)
             if isinstance(default, bool):
                 value = value == 'on'
@@ -371,30 +364,28 @@ def settings_page():
 @route('/system_info')
 def system_info():
     aaa.require(role='admin', fail_redirect='/sorry_page')
-    viewer_log_file = '/tmp/screenly_viewer.log'
-    if path.exists(viewer_log_file):
-        viewlog = check_output(['tail', '-n', '20', viewer_log_file]).split('\n')
-    else:
-        viewlog = ["(no viewer log present -- is only the screenly server running?)\n"]
+    viewlog = check_output(['sudo', 'systemctl', 'status', 'screenly-viewer.service', '-n', '20']).split('\n')
 
-    # Get load average from last 15 minutes and round to two digits.
-    loadavg = round(getloadavg()[2], 2)
+    loadavg = diagnostics.get_load_avg()['15 min']
 
-    try:
-        run_tvservice = check_output(['tvservice', '-s'])
-        display_info = re_split('\||,', run_tvservice.strip('state:'))
-    except:
-        display_info = False
+    display_info = diagnostics.get_monitor_status()
 
     # Calculate disk space
     slash = statvfs("/")
     free_space = size(slash.f_bavail * slash.f_frsize)
 
     # Get uptime
-    uptime_in_seconds = uptime()
+    uptime_in_seconds = diagnostics.get_uptime()
     system_uptime = timedelta(seconds=uptime_in_seconds)
 
-    return template('system_info', viewlog=viewlog, loadavg=loadavg, free_space=free_space, uptime=system_uptime, display_info=display_info)
+    return template(
+        'system_info',
+        viewlog=viewlog,
+        loadavg=loadavg,
+        free_space=free_space,
+        uptime=system_uptime,
+        display_info=display_info
+    )
 
 
 @route('/splash_page')
@@ -402,7 +393,13 @@ def splash_page():
     my_ip = get_node_ip()
     if my_ip:
         ip_lookup = True
-        url = "http://{}:{}".format(my_ip, settings.get_listen_port())
+
+        # If we bind on 127.0.0.1, `enable_ssl.sh` has most likely been
+        # executed and we should access over SSL.
+        if settings.get_listen_ip() == '127.0.0.1':
+            url = 'https://{}'.format(my_ip)
+        else:
+            url = "http://{}:{}".format(my_ip, settings.get_listen_port())
     else:
         ip_lookup = False
         url = "Unable to look up your installation's IP address."
@@ -445,23 +442,9 @@ if __name__ == "__main__":
             if c.fetchone() is None:
                 c.execute(assets_helper.create_assets_table)
 
-
-    session_opts = {
-        'session.type': 'cookie',
-        'session.validate_key': True,
-    }
-
-    # Setup Beaker middleware to handle sessions and cookies
-    app = default_app()
-    session_opts = {
-    'session.type': 'cookie',
-    'session.validate_key': True,
-    'session.cookie_expires': True,
-    'session.timeout': 3600 * 24,  # 1 day
-    'session.encrypt_key': 'STUFF',
-    }
-    app = SessionMiddleware(app, session_opts)
-
-    run(app=app,host=settings.get_listen_ip(),
-            port=settings.get_listen_port(), fast=True,
-            reloader=True)
+        run(
+            host=settings.get_listen_ip(),
+            port=settings.get_listen_port(),
+            server='gunicorn',
+            timeout=240,
+        )

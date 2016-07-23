@@ -169,27 +169,6 @@
             %input.btn.cancel(type="button", value="Cancel")
             %input.btn.btn-primary(type="submit", value="Save")
 
-    %script(type="text/template", id="link-modal-template")
-      .modal.hide.fade(tabindex="-1", role="dialog", ariaLabelledby="myModalLabel", ariaHidden="true")
-        %form.form-horizontal#add-form
-          .modal-header
-            %h3#modalLabel Link to other PI
-          .modal-body
-            %fieldset
-              .control-group.host
-                %label.control-label Fetch assets from
-                .controls
-                  %input.span3(type="text", name="host", placeholder="IP or hostname") &nbsp;Port&nbsp;
-                  %input.span1(type="number", name="port")
-            
-            
-          .modal-footer
-            .pull-left.progress.progress-striped.active(style="display:none")
-              .bar
-            %input.btn.cancel(type="button", value="Cancel")
-            %input.btn.btn-primary(type="submit", value="Save")
-
-
 
   %body
     #request-error.navbar.navbar-fixed-top
@@ -197,8 +176,7 @@
       .navbar-inner
         .container
           %a.brand(href="/")
-            %strong Screenly
-            %span OSE
+            %img(src='static/img/screenly_ose_logo.png')
 
           %ul.nav.pull-right
             - if not up_to_date:
@@ -270,12 +248,12 @@
 
       %hr
       %span Want to get more out of Screenly?
-      %a.brand(href="http://www.screenlyapp.com/?utm_source=Screenly-OSE&utm_medium=root-page&utm_campaign=OSE")
+      %a.brand(href="http://www.screenlyapp.com/?utm_source=Screenly-OSE&utm_medium=root-page&utm_campaign=OSE", target="_blank")
         %strong Try Screenly Pro.
 
     #footer
       .container
         .copy
-          &copy; <strong>2012-2015.</strong> WireLoad, Inc., Modifications &copy; <strong>2013-2015</strong> FSG
+          &copy; <strong>2012-2016.</strong> WireLoad, Inc., Modifications &copy; <strong>2013-2016</strong> FSG
         %a(id="wireload-logo", href="http://wireload.net/")
           %img(src="/static/img/wireload-logo.png", alt="WireLoad")

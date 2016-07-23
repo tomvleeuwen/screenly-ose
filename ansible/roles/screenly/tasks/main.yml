@@ -1,0 +1,66 @@
+- name: Ensure folders exist
+  file:
+    path: "/home/pi/{{ item }}"
+    state: directory
+    owner: pi
+    group: pi
+  with_items:
+    - .screenly
+    - .config
+    - .config/uzbl
+
+- name: Copy Screenly default config
+  copy:
+    owner: pi
+    group: pi
+    src: screenly.conf
+    dest: /home/pi/.screenly/screenly.conf
+    force: no
+
+- name: Copy in GTK config
+  copy:
+    owner: pi
+    group: pi
+    src: gtkrc-2.0
+    dest: /home/pi/.gtkrc-2.0
+
+- name: Copy in UZBL config
+  copy:
+    owner: pi
+    group: pi
+    src: uzbl-config
+    dest: /home/pi/.config/uzbl/config-screenly
+
+- name: Install pip dependencies
+  pip: requirements=/home/pi/screenly/requirements.txt
+
+- name: Create default assets database if does not exists
+  copy:
+    owner: pi
+    group: pi
+    src: screenly.db
+    dest: /home/pi/.screenly/screenly.db
+    force: no
+
+- name: Run database migration
+  become: no
+  command: python /home/pi/screenly/bin/migrate.py
+  register: migrate
+
+- debug: msg="{{ migrate.stdout }}"
+
+- name: Copy screenly systemd units
+  copy:
+    src: "{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+  with_items: "{{ screenly_systemd_units }}"
+
+- name: Enable screenly systemd services
+  command: systemctl enable {{ item }} chdir=/etc/systemd/system
+  with_items: "{{ screenly_systemd_units }}"
+
+- name: Restart services
+  command: /bin/true
+  notify:
+    - restart-screenly-server
+    - restart-screenly-viewer

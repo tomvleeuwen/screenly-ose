@@ -1,0 +1,148 @@
+
+#- name: test for available disk space
+#  assert:
+#    that:
+#     - "{{ item.size_available > 500 * 1000 * 1000 }}" # 500Mb
+#  when: "{{ item.mount == '/' }}"
+#  with_items: "{{ ansible_mounts }}"
+
+
+# We need custom handling for BerryBoot as it lacks `/boot`.
+# To detect this, the image creates `/etc/berryboot`.
+- stat:
+    path: /etc/berryboot
+  register: berryboot
+
+- set_fact: is_berryboot="{{berryboot.stat.exists}}"
+
+- debug:
+    msg: "Detected BerryBoot installation. Skipping some steps."
+  when: is_berryboot
+
+- name: Make sure we have proper framebuffer depth
+  lineinfile:
+    dest: /boot/config.txt
+    regexp: ^framebuffer_depth=
+    line: framebuffer_depth=32
+  when: not is_berryboot
+
+- name: Fix framebuffer bug
+  lineinfile:
+    dest: /boot/config.txt
+    regexp: ^framebuffer_ignore_alpha=
+    line: framebuffer_ignore_alpha=1
+  when: not is_berryboot
+
+- name: Backup kernel boot args
+  copy:
+    src: /boot/cmdline.txt
+    dest: /boot/cmdline.txt.orig
+    force: no
+  when: not is_berryboot
+
+- debug:
+    msg: "Use cmdline.txt.orig for boot parameters (don't remove this file)"
+  when: not is_berryboot
+
+- copy:
+    src: /boot/cmdline.txt.orig
+    dest: /boot/cmdline.txt
+    force: yes
+  when: not is_berryboot
+
+- name: Use Systemd as init and quiet boot process
+  lineinfile:
+    dest: /boot/cmdline.txt
+    regexp: (.*)
+    backrefs: yes
+    line: \1 quiet init=/lib/systemd/systemd
+  when: not is_berryboot
+
+- name: Install Screenly dependencies
+  apt:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - libffi-dev
+    - libssl-dev
+    - matchbox
+    - omxplayer
+    - python-dev
+    - python-netifaces
+    - python-simplejson
+    - sqlite3
+    - systemd
+    - uzbl
+    - x11-xserver-utils
+    - xserver-xorg
+
+- name: Install systemd-sysv on Wheezy
+  command: bash -c 'echo "Yes, do as I say!" | apt-get install -y --force-yes systemd-sysv'
+  when: ansible_distribution_release == "wheezy"
+
+- name: Remove deprecated apt dependencies
+  apt:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - supervisor
+    - lightdm
+    - lightdm-gtk-greeter
+    - dphys-swapfile
+
+- name: Perform system upgrade
+  apt:
+    upgrade: dist
+  tags:
+    - system-upgrade
+
+- name: Clean up unused packages
+  command: apt-get -y autoremove
+  tags:
+    - system-upgrade
+
+- name: Remove deprecated pip dependencies
+  pip:
+    name: supervisor
+    state: absent
+
+- name: Copy in rc.local
+  copy:
+    src: rc.local
+    dest: /etc/rc.local
+    mode: 0755
+    owner: root
+    group: root
+
+- name: Copy in 01_nodoc
+  copy:
+    src: 01_nodoc
+    dest: /etc/dpkg/dpkg.cfg.d/01_nodoc
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Copy in evdev
+  copy:
+    src: 10-evdev.conf
+    dest: /usr/share/X11/xorg.conf.d/10-evdev.conf
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Clear out X11 configs (disables touchpad and other unnecessary things)
+  file:
+    path: "/usr/share/X11/xorg.conf.d/{{ item }}"
+    state: absent
+  with_items:
+    - 50-synaptics.conf
+    - 10-quirks.conf
+    - 50-wacom.conf
+
+- name: Disable swap
+  command: /sbin/swapoff --all removes=/var/swap
+
+- name: Remove swapfile from disk
+  file:
+    path: /var/swap
+    state: absent

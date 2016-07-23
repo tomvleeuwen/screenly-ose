@@ -21,18 +21,18 @@
   };
 
   date_settings_24hour = {
-    full_date: 'YYYY/MM/DD HH:mm:ss',
-    date: 'YYYY/MM/DD',
+    full_date: 'MM/DD/YYYY HH:mm:ss',
+    date: 'MM/DD/YYYY',
     time: 'HH:mm',
     show_meridian: false,
-    datepicker_format: 'yyyy/mm/dd'
+    datepicker_format: 'mm/dd/yyyy'
   };
 
   date_settings = use_24_hour_clock ? date_settings_24hour : date_settings_12hour;
 
   API.date_to = date_to = function(d) {
     var dd;
-    dd = moment(new Date(d));
+    dd = moment.utc(d).local();
     return {
       string: function() {
         return dd.format(date_settings.full_date);
@@ -100,6 +100,7 @@
     extend(Asset, superClass);
 
     function Asset() {
+      this.old_name = bind(this.old_name, this);
       this.rollback = bind(this.rollback, this);
       this.backup = bind(this.backup, this);
       this.active = bind(this.active, this);
@@ -146,6 +147,12 @@
       if (this.backup_attributes) {
         this.set(this.backup_attributes);
         return this.backup_attributes = void 0;
+      }
+    };
+
+    Asset.prototype.old_name = function() {
+      if (this.backup_attributes) {
+        return this.backup_attributes.name;
       }
     };
 
@@ -392,7 +399,13 @@
         });
       } else {
         if (!this.model.get('name')) {
-          if (get_mimetype(this.model.get('uri'))) {
+          if (this.model.old_name()) {
+            this.model.set({
+              name: this.model.old_name()
+            }, {
+              silent: true
+            });
+          } else if (get_mimetype(this.model.get('uri'))) {
             this.model.set({
               name: get_filename(this.model.get('uri'))
             }, {
@@ -912,13 +925,17 @@
     };
 
     AssetsView.prototype.update_order = function() {
-      var i, id, k, len, ref;
-      ref = (this.$('#active-assets')).sortable('toArray');
-      for (i = k = 0, len = ref.length; k < len; i = ++k) {
-        id = ref[i];
+      var active, el, i, id, k, l, len, len1, ref;
+      active = (this.$('#active-assets')).sortable('toArray');
+      for (i = k = 0, len = active.length; k < len; i = ++k) {
+        id = active[i];
         this.collection.get(id).set('play_order', i);
       }
-      this.collection.sort();
+      ref = (this.$('#inactive-assets tr')).toArray();
+      for (l = 0, len1 = ref.length; l < len1; l++) {
+        el = ref[l];
+        this.collection.get(el.id).set('play_order', active.length);
+      }
       return $.post('/api/assets/order', {
         ids: ((this.$('#active-assets')).sortable('toArray')).join(',')
       });
@@ -926,6 +943,7 @@
 
     AssetsView.prototype.render = function() {
       var k, l, len, len1, ref, ref1, which;
+      this.collection.sort();
       ref = ['active', 'inactive'];
       for (k = 0, len = ref.length; k < len; k++) {
         which = ref[k];
@@ -944,12 +962,7 @@
         which = ref1[l];
         this.$("." + which + "-table thead").toggle(!!(this.$("#" + which + "-assets tr").length));
       }
-      if (this.$('#active-assets tr').length > 1) {
-        this.sorted.sortable('enable');
-        this.update_order();
-      } else {
-        this.sorted.sortable('disable');
-      }
+      this.update_order();
       return this.el;
     };
 
@@ -961,7 +974,6 @@
     extend(App, superClass);
 
     function App() {
-      this.link = bind(this.link, this);
       this.add = bind(this.add, this);
       this.initialize = bind(this.initialize, this);
       return App.__super__.constructor.apply(this, arguments);
@@ -1000,23 +1012,6 @@
           collection: API.assets
         })
       });
-      return false;
-    };
-
-    App.prototype.link = function(e) {
-      if (LinkedPiInstance.get('enabled')) {
-        LinkedPiInstance.set('enabled', false);
-        $.post('/api/setremote', {
-          host: LinkedPiInstance.get('host'),
-          port: LinkedPiInstance.get('port'),
-          enabled: 0
-        });
-        LinkedPiGUIAdapt();
-      } else {
-        new EditLinkedMaster({
-          model: LinkedPiInstance
-        });
-      }
       return false;
     };
 
