@@ -974,6 +974,7 @@
     extend(App, superClass);
 
     function App() {
+      this.link = bind(this.link, this);
       this.add = bind(this.add, this);
       this.initialize = bind(this.initialize, this);
       return App.__super__.constructor.apply(this, arguments);
@@ -1012,6 +1013,23 @@
           collection: API.assets
         })
       });
+      return false;
+    };
+
+    App.prototype.link = function(e) {
+      if (LinkedPiInstance.get('enabled')) {
+        LinkedPiInstance.set('enabled', false);
+        $.post('/api/setremote', {
+          host: LinkedPiInstance.get('host'),
+          port: LinkedPiInstance.get('port'),
+          enabled: 0
+        });
+        LinkedPiGUIAdapt();
+      } else {
+        new EditLinkedMaster({
+          model: LinkedPiInstance
+        });
+      }
       return false;
     };
 

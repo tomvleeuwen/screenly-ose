@@ -19,7 +19,7 @@ import os
 import traceback
 import uuid
 
-from bottle import route, run, request, error, static_file, response
+from bottle import route, run, request, error, static_file, response, redirect
 from bottle import HTTPResponse
 from bottlehaml import haml_template
 
@@ -434,6 +434,23 @@ if __name__ == "__main__":
     if not path.isdir(settings.get_configdir()):
         makedirs(settings.get_configdir())
 
+    #Enable session handling for cork
+    session_opts = {
+        'session.type': 'cookie',
+        'session.validate_key': True,
+    }
+
+    # Setup Beaker middleware to handle sessions and cookies
+    app = default_app()
+    session_opts = {
+        'session.type': 'cookie',
+        'session.validate_key': True,
+        'session.cookie_expires': True,
+        'session.timeout': 3600 * 24,  # 1 day
+        'session.encrypt_key': 'STUFF',
+    }
+    app = SessionMiddleware(app, session_opts)
+    
     with db.conn(settings['database']) as conn:
         global db_conn
         db_conn = conn
@@ -443,6 +460,7 @@ if __name__ == "__main__":
                 c.execute(assets_helper.create_assets_table)
 
         run(
+            app=app,
             host=settings.get_listen_ip(),
             port=settings.get_listen_port(),
             server='gunicorn',

@@ -548,3 +548,11 @@ API.App = class App extends Backbone.View
       new Asset {}, {collection: API.assets}
     no
 
+  link: (e) =>
+    if LinkedPiInstance.get('enabled')
+       LinkedPiInstance.set 'enabled', false
+       $.post '/api/setremote', {host:LinkedPiInstance.get('host'), port:LinkedPiInstance.get('port'), enabled:0 }
+       LinkedPiGUIAdapt()
+    else
+       new EditLinkedMaster model: LinkedPiInstance
+    no
