@@ -4,7 +4,7 @@ MAINTAINER Sebastian Schildt <sebastian@frozenlight.de>
 #Build from main directore with  docker build -f mothership/Dockerfile -t mothership .
 
 RUN apt-get update && \
-    apt-get -y install git-core net-tools python-pip python-requests python-netifaces python-simplejson python-imaging python-dev sqlite3 libffi-dev libssl-dev screen vim && \
+    apt-get -y install git-core net-tools python-pip python-requests python-netifaces python-simplejson python-imaging python-dev sqlite3 libffi-dev libssl-dev screen vim openssh-server && \
     apt-get clean
 
 # Install Python requirements
