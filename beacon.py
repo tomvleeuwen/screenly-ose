@@ -26,7 +26,7 @@ ip=None
 while ip == None:
 	print(str(datetime.datetime.now())+" Wait vor IP on eth0")
 	ip=get_ip('eth0')
-	uuid="%x" % uuid.getnode()
+	uuidstr="%x" % uuid.getnode()
 	time.sleep(5)
 
 
@@ -35,11 +35,11 @@ sleep=30
 mothership=settings['mothership']
 port=settings.get_listen_port()
 
-print("UUID is "+str(uuid)+" for IP "+str(ip))
+print("UUID is "+str(uuidstr)+" for IP "+str(ip))
 print("Mothership location is at "+str(mothership))
 
 while True:
-	params = urllib.urlencode({'uuid': uuid, 'ip': str(ip)+":"+str(port)})
+	params = urllib.urlencode({'uuid': uuidstr, 'ip': str(ip)+":"+str(port)})
 	headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
 	conn = httplib.HTTPConnection(mothership)
 	try:
