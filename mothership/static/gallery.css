@@ -1,0 +1,46 @@
+/*
+ *
+ *                       |
+ *                      /|
+ *                    /  |    ***
+ *                  /    |  *     *
+ *             ----       \ *     *     /------------_____
+ *            ####         \_ ***  ___/           ###     ------\
+ *          #      #         ------             #     #          |
+ *         #        #                          #       #        /
+ *          #      #                            #     #    -----
+ *    ############                               ####
+ *                     F o r m u l a
+ *    S t u d e n t    G E R M A N Y
+ *
+ ***********************************************************************
+ *  gallery.css
+ * 
+ *  Copyright 2016 Formula Student Germany (it@formulastudent.de)
+ *
+ *  Author: Tom van Leeuwen
+ *
+ ***********************************************************************
+ *
+ * CSS file for Screenly mothership screenshot page
+ * 
+ */
+
+.gallery {
+    overflow: auto;
+}
+
+.gallery_inner {
+    float: left;
+    padding: 7px;
+    border-style: solid;
+    border-width: 1px;
+    border-radius: 5px;
+    margin: 3px;
+}
+
+.screenshot {
+    width: 192px; 
+    height: 108px;
+    background-color: black;
+}
