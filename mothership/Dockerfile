@@ -26,11 +26,11 @@ RUN chown -R pi:pi /home/pi
 
 # Copy in code base
 COPY . /home/pi/screenly
-COPY bin /home/pi/screenly
 
 RUN ls /home
 RUN ls /home/pi/screenly
 RUN ls /home/pi/screenly/bin
+RUN chown -R pi:pi /home/pi/screenly/
 
 RUN python /home/pi/screenly/bin/createAuth.py
 RUN echo "admin:admin" > /home/pi/screenly/mothership/secret
