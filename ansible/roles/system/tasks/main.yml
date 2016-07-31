@@ -19,6 +19,20 @@
     msg: "Detected BerryBoot installation. Skipping some steps."
   when: is_berryboot
 
+- name: Disable overscan
+  lineinfile:
+    dest: /boot/config.txt
+    regexp: ^disable_overscan=
+    line: disable_overscan=1
+  when: not is_berryboot
+
+- name: Avoid on-screen warnings about power and temperature
+  lineinfile:
+    dest: /boot/config.txt
+    regexp: ^avoid_warnings=
+    line: avoid_warnings=1
+  when: not is_berryboot
+
 - name: Make sure we have proper framebuffer depth
   lineinfile:
     dest: /boot/config.txt
