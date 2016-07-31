@@ -25,8 +25,8 @@ DEFAULTS = {
         'debug_logging': False,
         'verify_ssl': True,
         'remote_enabled': False,
-	    'remote_host': 'quinn.event.formulastudent.de',
-	    'remote_port': '8080',
+        'remote_host': 'quinn.event.formulastudent.de',
+        'remote_port': '8080',
     },
     'beacon': {
         'mothership': 'mothership:8080',
