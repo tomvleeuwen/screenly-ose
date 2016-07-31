@@ -50,6 +50,8 @@
   become: no
   command: python /home/pi/screenly/bin/migrate.py
   register: migrate
+ 
+- make: chdir=/home/pi/screenly/raspi2png/
 
 - debug: msg="{{ migrate.stdout }}"
 
