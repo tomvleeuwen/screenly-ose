@@ -18,6 +18,7 @@ urls = (
     '/login','Login',
     '/setlabel', 'SetLabel',
     '/delete', 'DeletePod',
+    '/gallery', 'Gallery',
 )
 
 
@@ -153,6 +154,16 @@ class Beacon:
         db.addEntry(user_data.uuid,user_data.ip,json.dumps(asset_array))
 #           model.del_todo(id)
 #         raise web.seeother('/')
+
+
+
+class Gallery:
+    def GET(self):
+        """ Show page """
+        if CheckAuth(web.ctx.env.get('HTTP_AUTHORIZATION')):
+            return render.gallery()
+        else:
+            raise web.seeother('/login')
 
 
 app = web.application(urls, globals())

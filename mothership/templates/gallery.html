@@ -1,0 +1,39 @@
+
+
+<link type="text/css"  href="./static/gallery.css" rel="stylesheet" />
+<script type="text/javascript" language="javascript" src="./static/jquery.js"></script>
+<script type="text/javascript" language="javascript" src="./static/jquery.dataTables.min.js"></script>
+    
+<script type="text/javascript" charset="utf-8">
+    
+J = jQuery;
+    
+
+J(document).ready(function() {
+    
+    function populate_gallery(data) {
+        var htmlcode = "";
+        for(var i = 0; i < data.length; i++) {
+            var obj = data[i];
+            var d = new Date();
+            htmlcode += "<div class=\"gallery_inner\">"
+            htmlcode += "<a href=\"http://" + obj[3] + "/screenshot.png\">"
+            htmlcode += "<img class=\"screenshot\" src=\"http://" + obj[3] + "/screenshot-thumb.png?rnd=" + d.getMilliseconds() + "\" />"
+            htmlcode += "<br />" + obj[1] + "</a></div>";
+        }
+        J('div.gallery').html(htmlcode);
+    }
+    
+    J.getJSON('dbcontents', populate_gallery);
+
+} );
+</script>
+
+<h1>FSG Screen live display</h1>
+
+<div class="gallery"></div>
+
+<div align="center" style="margin-top:30px" >
+<hr />
+<img  src="./static/fsglogo.jpg" />
+</div>
