@@ -51,11 +51,13 @@
   command: python /home/pi/screenly/bin/migrate.py
   register: migrate
  
-- make: chdir=/home/pi/screenly/raspi2png/
-
-- make: chdir=/home/pi/screenly/python-cec/
-
 - debug: msg="{{ migrate.stdout }}"
+
+- name: Build Raspi2PNG binary
+  make: chdir=/home/pi/screenly/raspi2png/
+
+- name: Build python-cec library
+  make: chdir=/home/pi/screenly/python-cec/
 
 - name: Copy screenly systemd units
   copy:
