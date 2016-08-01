@@ -79,6 +79,7 @@
   with_items:
     - libffi-dev
     - libssl-dev
+    - libcec-dev
     - matchbox
     - omxplayer
     - python-dev

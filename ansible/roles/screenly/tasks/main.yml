@@ -53,6 +53,8 @@
  
 - make: chdir=/home/pi/screenly/raspi2png/
 
+- make: chdir=/home/pi/screenly/python-cec/
+
 - debug: msg="{{ migrate.stdout }}"
 
 - name: Copy screenly systemd units
