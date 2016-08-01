@@ -111,6 +111,8 @@ def template(template_name, **context):
     context['remote_host'] = '"'+settings['remote_host']+'"'
     context['remote_port'] = settings['remote_port']
     context['remote_enabled'] = settings['remote_enabled']
+    context['tv_power_on'] = settings['power_on']
+    context['tv_active_source'] = settings['active_source']
 
     return haml_template(template_name, **context)
 

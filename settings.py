@@ -30,10 +30,16 @@ DEFAULTS = {
     },
     'beacon': {
         'mothership': 'mothership:8080',
+    },
+    'cec': {
+        'power_on' : True,
+        'active_source' : True
     }
 }
 CONFIGURABLE_SETTINGS = DEFAULTS['viewer']
 CONFIGURABLE_SETTINGS['use_24_hour_clock'] = DEFAULTS['main']['use_24_hour_clock']
+CONFIGURABLE_SETTINGS['power_on'] = DEFAULTS['cec']['power_on']
+CONFIGURABLE_SETTINGS['active_source'] = DEFAULTS['cec']['active_source']
 
 # Initiate logging
 logging.basicConfig(level=logging.INFO,
