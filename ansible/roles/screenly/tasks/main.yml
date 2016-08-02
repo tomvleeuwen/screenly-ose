@@ -50,11 +50,23 @@
   become: no
   command: python /home/pi/screenly/bin/migrate.py
   register: migrate
- 
+
 - debug: msg="{{ migrate.stdout }}"
+
+- name: Download Raspi2PNG
+  git:
+    repo=https://github.com/AndrewFromMelbourne/raspi2png.git
+    dest=/home/pi/screenly/raspi2png
+    version=master
 
 - name: Build Raspi2PNG binary
   make: chdir=/home/pi/screenly/raspi2png/
+
+- name: Download python-cec
+  git:
+    repo=https://github.com/tomvleeuwen/python-cec.git
+    dest=/home/pi/screenly/python-cec
+    version=master
 
 - name: Build python-cec library
   make: chdir=/home/pi/screenly/python-cec/
