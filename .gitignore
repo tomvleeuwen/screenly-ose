@@ -35,3 +35,10 @@ pip-log.txt
 .sass-cache/*
 venv
 *.retry
+
+# Python-cec
+python-cec/cec.so
+
+# Raspi2PNG
+raspi2png/raspi2png
+raspi2png/raspi2png.o
