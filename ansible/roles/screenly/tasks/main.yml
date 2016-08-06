@@ -56,6 +56,11 @@
 - name: Build Raspi2PNG binary
   make: chdir=/home/pi/screenly/raspi2png/
 
+- name: Checkout python-cec library
+  git:  
+     repo: https://github.com/tomvleeuwen/python-cec 
+     dest: /home/pi/screenly/python-cec
+
 - name: Build python-cec library
   make: chdir=/home/pi/screenly/python-cec/
 
