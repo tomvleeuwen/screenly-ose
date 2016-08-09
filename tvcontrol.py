@@ -28,7 +28,7 @@ def main():
     devices = cec.list_devices()
     # weird it is a dictionary, mine (no TV connected) is not empty but only contains "1" but not "0". 
     # Tom wants 0 so wait for it
-    while ( "0" not in devices ):
+    while ( 0 not in devices ):
        print("Devices: "+str(devices))
        print("Correct CEC device not detected. Waiting....")
        time.sleep(10)
