@@ -185,7 +185,7 @@ def prepare_asset(request):
 
             file_upload.save(asset['uri'])
 
-        if "video" in asset['mimetype'] and get('duration')=="0":
+        if "video" in asset['mimetype'] and (get('duration')=="0" or get('duration')=="N/A"):
             video_duration = get_video_duration(asset['uri'])
             if video_duration:
                 asset['duration'] = int(video_duration.total_seconds())
