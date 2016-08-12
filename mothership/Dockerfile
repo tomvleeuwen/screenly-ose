@@ -12,7 +12,7 @@ MAINTAINER Sebastian Schildt <sebastian@frozenlight.de>
 
 
 RUN apt-get update && \
-    apt-get -y install git-core net-tools python-pip python-requests python-netifaces python-simplejson python-imaging python-dev sqlite3 libffi-dev libssl-dev screen vim openssh-server && \
+    apt-get -y install git-core net-tools python-pip python-requests python-netifaces python-simplejson python-imaging python-dev sqlite3 libffi-dev libssl-dev screen vim openssh-server supervisor && \
     apt-get clean
 
 # Install Python requirements
@@ -26,24 +26,24 @@ RUN pip install -r /tmp/requirements.txt
 RUN useradd pi
 
 # Install config file and file structure
-RUN mkdir -p /home/pi/.screenly /home/pi/screenly /home/pi/screenly_assets
+RUN mkdir -p /home/pi/screenly
 COPY ansible/roles/screenly/files/screenly.conf /home/pi/.screenly/screenly.conf
+
+# Configure supervisor
+COPY mothership/supervisord.conf /etc/supervisor/supervisord.conf
+RUN mkdir -p /home/pi/log /home/pi/run
 RUN chown -R pi:pi /home/pi
-
-
+RUN chown -R pi:pi /etc/supervisor
 
 # Copy in code base
 COPY . /home/pi/screenly
 
-RUN ls /home
-RUN ls /home/pi/screenly
-RUN ls /home/pi/screenly/bin
 RUN chown -R pi:pi /home/pi/screenly/
 
 #Symlink everything to data volume
 RUN ln -s /screenlydata/data/screenly.auth /home/pi/
-RUN rm -r /home/pi/screenly_assets && ln -s /screenlydata/data/screenly_assets /home/pi/
-RUN rm -r /home/pi/.screenly && ln -s /screenlydata/data/.screenly /home/pi/
+RUN ln -s /screenlydata/data/screenly_assets /home/pi/
+RUN ln -s /screenlydata/data/.screenly /home/pi/
 RUN rm /home/pi/screenly/mothership/secret && ln -s /screenlydata/data/secret /home/pi/screenly/mothership/
 RUN rm /home/pi/screenly/mothership/mothership.db && ln -s /screenlydata/data/mothership.db /home/pi/screenly/mothership/
 
@@ -56,9 +56,10 @@ RUN rm /home/pi/screenly/mothership/mothership.db && ln -s /screenlydata/data/mo
 #RUN echo "mothership = 127.0.0.1:9000" >> /home/pi/.screenly/screenly.conf 
 
 USER pi
+
 WORKDIR /home/pi/screenly
 
 EXPOSE 8080
 EXPOSE 9000
 
-CMD mothership/dockerrun.sh
+CMD ["/usr/bin/supervisord"]
