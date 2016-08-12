@@ -27,7 +27,6 @@ RUN useradd pi
 
 # Install config file and file structure
 RUN mkdir -p /home/pi/screenly
-COPY ansible/roles/screenly/files/screenly.conf /home/pi/.screenly/screenly.conf
 
 # Configure supervisor
 COPY mothership/supervisord.conf /etc/supervisor/supervisord.conf
@@ -44,8 +43,8 @@ RUN chown -R pi:pi /home/pi/screenly/
 RUN ln -s /screenlydata/data/screenly.auth /home/pi/
 RUN ln -s /screenlydata/data/screenly_assets /home/pi/
 RUN ln -s /screenlydata/data/.screenly /home/pi/
-RUN rm /home/pi/screenly/mothership/secret && ln -s /screenlydata/data/secret /home/pi/screenly/mothership/
-RUN rm /home/pi/screenly/mothership/mothership.db && ln -s /screenlydata/data/mothership.db /home/pi/screenly/mothership/
+RUN rm /home/pi/screenly/mothership/secret; ln -s /screenlydata/data/secret /home/pi/screenly/mothership/
+RUN rm /home/pi/screenly/mothership/mothership.db; ln -s /screenlydata/data/mothership.db /home/pi/screenly/mothership/
 
 
 #RUN python /home/pi/screenly/bin/createAuth.py
