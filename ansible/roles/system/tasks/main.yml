@@ -64,6 +64,22 @@
     force: yes
   when: not is_berryboot
 
+- name: Set zoneinfo file
+  copy:
+    dest: /etc/localtime
+    src: /usr/share/zoneinfo/Europe/Berlin
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Set timezone
+  copy:
+    dest: /etc/timezone
+    src: timezone
+    mode: 0644
+    owner: root
+    group: root
+
 - name: Use Systemd as init and quiet boot process
   lineinfile:
     dest: /boot/cmdline.txt
