@@ -10,7 +10,7 @@ from functools import wraps
 from hurry.filesize import size
 from os import path, makedirs, statvfs, mkdir, getenv
 from sh import git
-from subprocess import check_output, call
+from subprocess import check_output, call, CalledProcessError
 from uptime import uptime
 import sh
 import json
@@ -110,6 +110,8 @@ def template(template_name, **context):
     context['remote_host'] = '"'+settings['remote_host']+'"'
     context['remote_port'] = settings['remote_port']
     context['remote_enabled'] = settings['remote_enabled']
+    context['tv_power_on'] = settings['tv_power_on']
+    context['tv_active_source'] = settings['tv_active_source']
 
     return haml_template(template_name, **context)
 
@@ -182,7 +184,7 @@ def prepare_asset(request):
 
             file_upload.save(asset['uri'])
 
-        if "video" in asset['mimetype'] and get('duration')=="0":
+        if "video" in asset['mimetype'] and (get('duration')=="0" or get('duration')=="N/A"):
             video_duration = get_video_duration(asset['uri'])
             if video_duration:
                 asset['duration'] = int(video_duration.total_seconds())
@@ -430,6 +432,33 @@ def mistake403(code):
 def mistake404(code):
     return 'Sorry, this page does not exist!'
 
+
+################################
+# Screenshot
+################################
+
+# Call raspi2png.
+# Minimal compression, since the CPU time is much more expensive than the network transfer time.
+def make_screenshot(cmd_args = []):
+    try:
+        image = check_output(['/home/pi/screenly/raspi2png/raspi2png', '--compression', '0', '--stdout'] + cmd_args)
+    except CalledProcessError:
+        return "Cannot generate screenshot currently. Note: full-size screenshot not supported while playing video."
+    if image[0:4] == "\x89PNG": # PNG Magic number
+        response.content_type = 'image/png'
+        return image
+    else:
+        return 'Could not generate the image'
+        
+@route('/screenshot.png')
+def screenshot():
+    return make_screenshot()
+
+@route('/screenshot-thumb.png')
+def screenshot_thumb():
+    # Create thumbnail. Do not make width and height variable since there seems to be a problem once it gets larger than about 50% of the sreen.
+    # A fixed thumnail size is all that is required anyway.
+    return make_screenshot(['--width', '198', '--height', '108'])
 
 ################################
 # Static

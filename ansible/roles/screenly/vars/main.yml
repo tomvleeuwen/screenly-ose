@@ -4,3 +4,4 @@ screenly_systemd_units:
   - screenly-viewer.service
   - screenly-web.service
   - screenly-beacon.service
+  - screenly-tvcontrol.service

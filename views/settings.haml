@@ -118,6 +118,34 @@
                     %span.off Off
                   %a.btn.btn-primary.slide-button
 
+            .control-group
+              %label.control-label Keep TV on using CEC
+              .controls
+
+                %label.checkbox.toggle.well#tv_power_checkbox
+                  - if tv_power_on:
+                    %input(type="checkbox", checked="checked", name="tv_power_on")
+                  - else:
+                    %input(type="checkbox", name="tv_power_on")
+                  %p
+                    %span.on On
+                    %span.off Off
+                  %a.btn.btn-primary.slide-button
+
+            .control-group
+              %label.control-label Keep TV source using CEC
+              .controls
+
+                %label.checkbox.toggle.well#tv_source_checkbox
+                  - if tv_active_source:
+                    %input(type="checkbox", checked="checked", name="tv_active_source")
+                  - else:
+                    %input(type="checkbox", name="tv_active_source")
+                  %p
+                    %span.on On
+                    %span.off Off
+                  %a.btn.btn-primary.slide-button
+
             .form-actions
               %input.btn.btn-primary(type="submit", value="Save Settings")
               %a.btn(href="/") Cancel

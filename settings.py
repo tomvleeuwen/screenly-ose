@@ -25,15 +25,21 @@ DEFAULTS = {
         'debug_logging': False,
         'verify_ssl': True,
         'remote_enabled': False,
-	    'remote_host': 'quinn.event.formulastudent.de',
-	    'remote_port': '8080',
+        'remote_host': 'quinn.event.formulastudent.de',
+        'remote_port': '8080',
     },
     'beacon': {
         'mothership': 'mothership:8080',
+    },
+    'cec': {
+        'tv_power_on' : True,
+        'tv_active_source' : True
     }
 }
 CONFIGURABLE_SETTINGS = DEFAULTS['viewer']
 CONFIGURABLE_SETTINGS['use_24_hour_clock'] = DEFAULTS['main']['use_24_hour_clock']
+CONFIGURABLE_SETTINGS['tv_power_on'] = DEFAULTS['cec']['tv_power_on']
+CONFIGURABLE_SETTINGS['tv_active_source'] = DEFAULTS['cec']['tv_active_source']
 
 # Initiate logging
 logging.basicConfig(level=logging.INFO,

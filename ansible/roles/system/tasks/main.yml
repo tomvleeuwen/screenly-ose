@@ -19,6 +19,20 @@
     msg: "Detected BerryBoot installation. Skipping some steps."
   when: is_berryboot
 
+- name: Disable overscan
+  lineinfile:
+    dest: /boot/config.txt
+    regexp: ^disable_overscan=
+    line: disable_overscan=1
+  when: not is_berryboot
+
+- name: Avoid on-screen warnings about power and temperature
+  lineinfile:
+    dest: /boot/config.txt
+    regexp: ^avoid_warnings=
+    line: avoid_warnings=1
+  when: not is_berryboot
+
 - name: Make sure we have proper framebuffer depth
   lineinfile:
     dest: /boot/config.txt
@@ -50,6 +64,22 @@
     force: yes
   when: not is_berryboot
 
+- name: Set zoneinfo file
+  copy:
+    dest: /etc/localtime
+    src: /usr/share/zoneinfo/Europe/Berlin
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Set timezone
+  copy:
+    dest: /etc/timezone
+    src: timezone
+    mode: 0644
+    owner: root
+    group: root
+
 - name: Use Systemd as init and quiet boot process
   lineinfile:
     dest: /boot/cmdline.txt
@@ -66,6 +96,7 @@
     - console-data
     - libffi-dev
     - libssl-dev
+    - libcec-dev
     - matchbox
     - omxplayer
     - python-dev
