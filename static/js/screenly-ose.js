@@ -10,6 +10,39 @@
     hasProp = {}.hasOwnProperty,
     slice = [].slice;
 
+  $().ready(function() {
+    var hide_popover, popover_shown, show_popover;
+    popover_shown = false;
+    hide_popover = function() {
+      $('#subsribe-form-container').html('');
+      popover_shown = false;
+      $(window).off('keyup.email_popover');
+      return $(window).off('click.email_popover');
+    };
+    show_popover = function() {
+      $('#subsribe-form-container').html($('#subscribe-form-template').html());
+      popover_shown = true;
+      $(window).on('keyup.email_popover', function(event) {
+        if (event.keyCode === 27) {
+          return hide_popover();
+        }
+      });
+      return $(window).on('click.email_popover', function(event) {
+        var pop;
+        pop = document.getElementById('subscribe-popover');
+        if (!$.contains(pop, event.target)) {
+          return hide_popover();
+        }
+      });
+    };
+    return $('#show-email-popover').click(function() {
+      if (!popover_shown) {
+        show_popover();
+      }
+      return false;
+    });
+  });
+
   API = (window.Screenly || (window.Screenly = {}));
 
   date_settings_12hour = {
@@ -309,6 +342,7 @@
         (this.$('#modalLabel')).text("Edit Asset");
         (this.$('.asset-location')).hide();
         (this.$('.asset-location.edit')).show();
+        (this.$('.mime-select')).prop('disabled', 'true');
       }
       (this.$('.duration')).toggle(true);
       if ((this.model.get('mimetype')) === 'webpage') {

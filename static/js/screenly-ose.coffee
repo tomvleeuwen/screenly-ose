@@ -1,5 +1,31 @@
 ### screenly-ose ui ###
 
+$().ready ->
+  popover_shown = off
+
+  hide_popover = ->
+    $('#subsribe-form-container').html('')
+    popover_shown = off
+    $(window).off('keyup.email_popover')
+    $(window).off('click.email_popover')
+
+  show_popover = ->
+    $('#subsribe-form-container').html($('#subscribe-form-template').html())
+    popover_shown = on
+
+    $(window).on 'keyup.email_popover', (event) ->
+      if event.keyCode == 27
+        hide_popover()
+
+    $(window).on 'click.email_popover', (event) ->
+      pop = document.getElementById('subscribe-popover')
+      if !$.contains(pop, event.target)
+        hide_popover()
+
+  $('#show-email-popover').click ->
+    if !popover_shown then show_popover()
+    off
+
 API = (window.Screenly ||= {}) # exports
 
 date_settings_12hour =
@@ -162,6 +188,7 @@ API.View.EditAssetView = class EditAssetView extends Backbone.View
       (@$ f).attr 'disabled', on for f in 'mimetype uri file_upload'.split ' '
       (@$ '#modalLabel').text "Edit Asset"
       (@$ '.asset-location').hide(); (@$ '.asset-location.edit').show()
+      (@$ '.mime-select').prop('disabled', 'true')
 
     (@$ '.duration').toggle (true)
     @clickTabNavUri() if (@model.get 'mimetype') == 'webpage'

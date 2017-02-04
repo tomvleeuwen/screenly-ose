@@ -63,6 +63,7 @@
     name: "{{ item }}"
     state: latest
   with_items:
+    - console-data
     - libffi-dev
     - libssl-dev
     - matchbox
@@ -70,6 +71,7 @@
     - python-dev
     - python-netifaces
     - python-simplejson
+    - rpi-update
     - sqlite3
     - systemd
     - uzbl
@@ -138,6 +140,11 @@
     - 50-synaptics.conf
     - 10-quirks.conf
     - 50-wacom.conf
+
+- name: Restart X
+  command: /bin/true
+  notify:
+    - restart-x-server
 
 - name: Disable swap
   command: /sbin/swapoff --all removes=/var/swap

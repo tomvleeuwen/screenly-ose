@@ -4,8 +4,6 @@
 __author__ = "WireLoad Inc"
 __copyright__ = "Copyright 2012-2016, WireLoad Inc"
 __license__ = "Dual License: GPLv2 and Commercial License"
-__version__ = "0.1.4"
-__email__ = "vpetersson@wireload.net"
 
 from datetime import datetime, timedelta
 from functools import wraps
@@ -14,6 +12,7 @@ from os import path, makedirs, statvfs, mkdir, getenv
 from sh import git
 from subprocess import check_output, call
 from uptime import uptime
+import sh
 import json
 import os
 import traceback
@@ -217,8 +216,9 @@ def prepare_asset(request):
 
 @route('/api/assets', method="GET")
 def api_assets():
-    assets = assets_helper.read(db_conn)
-    return make_json_response(assets)
+    with db.conn(settings['database']) as conn:
+        assets = assets_helper.read(conn)
+        return make_json_response(assets)
 
 
 # api view decorator. handles errors
@@ -241,38 +241,43 @@ def add_asset():
     asset = prepare_asset(request)
     if url_fails(asset['uri']):
         raise Exception("Could not retrieve file. Check the asset URL.")
-    return assets_helper.create(db_conn, asset)
+    with db.conn(settings['database']) as conn:
+        return assets_helper.create(conn, asset)
 
 
 @route('/api/assets/:asset_id', method="GET")
 @api
 def edit_asset(asset_id):
-    return assets_helper.read(db_conn, asset_id)
+    with db.conn(settings['database']) as conn:
+        return assets_helper.read(conn, asset_id)
 
 
 @route('/api/assets/:asset_id', method=["PUT", "POST"])
 @api
 def edit_asset(asset_id):
-    return assets_helper.update(db_conn, asset_id, prepare_asset(request))
+    with db.conn(settings['database']) as conn:
+        return assets_helper.update(conn, asset_id, prepare_asset(request))
 
 
 @route('/api/assets/:asset_id', method="DELETE")
 @api
 def remove_asset(asset_id):
-    asset = assets_helper.read(db_conn, asset_id)
-    try:
-        if asset['uri'].startswith(settings['assetdir']):
-            os.remove(asset['uri'])
-    except OSError:
-        pass
-    assets_helper.delete(db_conn, asset_id)
-    response.status = 204  # return an OK with no content
+    with db.conn(settings['database']) as conn:
+        asset = assets_helper.read(conn, asset_id)
+        try:
+            if asset['uri'].startswith(settings['assetdir']):
+                os.remove(asset['uri'])
+        except OSError:
+            pass
+        assets_helper.delete(conn, asset_id)
+        response.status = 204  # return an OK with no content
 
 
 @route('/api/assets/order', method="POST")
 @api
 def playlist_order():
-    assets_helper.save_ordering(db_conn, request.POST.get('ids', '').split(','))
+    with db.conn(settings['database']) as conn:
+        assets_helper.save_ordering(conn, request.POST.get('ids', '').split(','))
 
 @route('/api/setremote', method="Post")
 @api
@@ -351,8 +356,11 @@ def settings_page():
             settings[field] = value
         try:
             settings.save()
+            sh.sudo('systemctl', 'kill', '--signal=SIGUSR2', 'screenly-viewer.service')
             context['flash'] = {'class': "success", 'message': "Settings were successfully saved."}
         except IOError as e:
+            context['flash'] = {'class': "error", 'message': e}
+        except sh.ErrorReturnCode_1 as e:
             context['flash'] = {'class': "error", 'message': e}
     else:
         settings.load()
@@ -366,6 +374,11 @@ def settings_page():
 def system_info():
     aaa.require(role='admin', fail_redirect='/sorry_page')
     viewlog = check_output(['sudo', 'systemctl', 'status', 'screenly-viewer.service', '-n', '20']).split('\n')
+    viewlog = None
+    try:
+        viewlog = check_output(['sudo', 'systemctl', 'status', 'screenly-viewer.service', '-n', '20']).split('\n')
+    except:
+        pass
 
     loadavg = diagnostics.get_load_avg()['15 min']
 
@@ -453,17 +466,16 @@ if __name__ == "__main__":
     app = SessionMiddleware(app, session_opts)
     
     with db.conn(settings['database']) as conn:
-        global db_conn
-        db_conn = conn
-        with db.cursor(db_conn) as c:
-            c.execute(queries.exists_table)
-            if c.fetchone() is None:
-                c.execute(assets_helper.create_assets_table)
+        with db.cursor(conn) as cursor:
+            cursor.execute(queries.exists_table)
+            if cursor.fetchone() is None:
+                cursor.execute(assets_helper.create_assets_table)
 
         run(
             app=app,
             host=settings.get_listen_ip(),
             port=settings.get_listen_port(),
             server='gunicorn',
+            thread=2,
             timeout=240,
         )
